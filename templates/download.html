@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}下载程序 - 漂流瓶{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header text-center">
+                <h3><i class="fas fa-download"></i> 下载漂流瓶程序</h3>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-wine-bottle fa-3x text-primary mb-3"></i>
+                    <h2>漂流瓶 v2.0</h2>
+                    <p class="text-muted">完整程序包</p>
+                </div>
+                
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle"></i> 程序包含</h5>
+                    <ul>
+                        <li>图形界面版本 (PyQt5)</li>
+                        <li>命令行版本</li>
+                        <li>网页版本 (Flask)</li>
+                        <li>所有源代码文件</li>
+                        <li>数据库脚本</li>
+                        <li>说明文档</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> 系统要求</h5>
+                    <ul>
+                        <li>Python 3.6 或更高版本</li>
+                        <li>MySQL数据库</li>
+                        <li>必要的Python库 (PyQt5, Flask, PyMySQL等)</li>
+                    </ul>
+                </div>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('download_program') }}" class="btn btn-success btn-lg">
+                        <i class="fas fa-download"></i> 下载完整程序 (ZIP)
+                    </a>
+                </div>
+                
+                <div class="mt-4">
+                    <h5><i class="fas fa-folder"></i> 程序结构</h5>
+                    <pre>
+drifting_bottle/
+├── gui_main.py          # 图形界面主程序
+├── main_with_out_GUI.py # 命令行版本
+├── fuc.py               # 数据库功能模块
+├── web_version/         # 网页版本
+│   ├── app.py
+│   ├── templates/
+│   └── static/
+├── *.sql                # 数据库脚本
+└── README.md            # 使用说明
+                    </pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

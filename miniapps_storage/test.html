@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>简单记事本 - 纯前端 HTML/JS 页</title>
+  <style>
+    :root{
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --accent: #7c3aed;
+      --shadow: 0 8px 24px rgba(0,0,0,.08);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      color: var(--text);
+      background: linear-gradient(135deg, #f5f7fb 0%, #e8eefc 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: min(980px, 94vw);
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1.1fr 1.9fr;
+      gap: 20px;
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eef2f7;
+      margin-bottom: 6px;
+    }
+    .title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: .4px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .section {
+      padding: 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #eef2f7;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .input, .textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      font-size: 1rem;
+      outline: none;
+    }
+    .textarea { min-height: 120px; resize: vertical; }
+    .btn {
+      background: linear-gradient(#2563eb, #1d4ed8);
+      color: #fff;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform .04s ease;
+    }
+    .btn.secondary {
+      background: #f3f4f6;
+      color: #111827;
+      border: 1px solid #e5e7eb;
+      font-weight: 600;
+    }
+    .btn:active { transform: scale(0.98); }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .search {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      font-size: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .card {
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid #eef2f7;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      min-height: 110px;
+      box-shadow: 0 1px 0 rgba(0,0,0,.03);
+    }
+    .card h4 {
+      margin: 0 0 6px 0;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card .date {
+      font-size: .75rem;
+      color: var(--muted);
+    }
+    .excerpt {
+      color: #374151;
+      font-size: .95rem;
+      margin: 4px 0 8px 0;
+      line-height: 1.4;
+      max-height: 3.2em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card .actions {
+      margin-top: auto;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .ghost { background: #eef2ff; color: #3730a3; border: 1px solid #dbe4ff; }
+    .danger { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      font-size: .85rem;
+    }
+
+    .body {
+      display: none;
+      white-space: pre-wrap;
+      margin-top: 6px;
+      padding: 8px;
+      background: #fff8dc;
+      border-radius: 8px;
+      border: 1px solid #f9e6a3;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas;
+      font-size: .92rem;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 860px) {
+      .container { grid-template-columns: 1fr; }
+    }
+
+    /* accessibility focus */
+    .btn:focus-visible, .input:focus-visible, .textarea:focus-visible, .search:focus-visible {
+      outline: 3px solid #8b5cf6;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" aria-label="简单记事本应用">
+    <div class="header section" style="grid-column: 1 / -1;">
+      <div>
+        <div class="title">简单记事本</div>
+        <div class="subtitle">纯前端实现：本地保存、搜索、快速记事</div>
+      </div>
+      <div class="pill" title="本地保存于浏览器存储">LocalStorage</div>
+    </div>
+
+    <section class="section" aria-label="创建新笔记">
+      <div class="form-row" style="display:flex; gap:8px; align-items: center;">
+        <input id="noteTitle" class="input" type="text" placeholder="笔记标题（可选）" style="flex: 1 1 auto;">
+        <button id="saveBtn" class="btn" title="保存笔记" aria-label="保存笔记">保存</button>
+      </div>
+      <div class="form-row">
+        <textarea id="noteBody" class="textarea" placeholder="在此输入笔记的内容..."></textarea>
+      </div>
+      <div class="toolbar" aria-label="附加操作">
+        <button id="exportBtn" class="btn secondary" aria-label="导出为 JSON">导出 JSON</button>
+        <button id="importBtn" class="btn secondary" aria-label="导入 JSON">导入 JSON</button>
+        <button id="clearBtn" class="btn secondary" aria-label="清空所有笔记">清空所有</button>
+      </div>
+    </section>
+
+    <section class="section" aria-label="笔记浏览区" style="min-height: 200px;">
+      <input id="search" class="search" type="search" placeholder="搜索笔记（按标题或内容）" aria-label="搜索笔记">
+      <div id="notesGrid" class="grid" style="margin-top:12px;">
+        <!-- 动态笔记卡片将被渲染在这里 -->
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const STORAGE_KEY = 'simple-notebook-v1';
+      const titleInput = document.getElementById('noteTitle');
+      const bodyInput = document.getElementById('noteBody');
+      const saveBtn = document.getElementById('saveBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const importBtn = document.getElementById('importBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const notesGrid = document.getElementById('notesGrid');
+      const searchInput = document.getElementById('search');
+
+      function loadNotes() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) return arr;
+          return [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveNotes(notes) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+      }
+
+      function formatDate(ts) {
+        const d = new Date(ts);
+        return d.toLocaleString();
+      }
+
+      function excerpt(text, len = 120) {
+        if (!text) return '';
+        if (text.length <= len) return text;
+        return text.slice(0, len) + '…';
+      }
+
+      function createCard(note) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.setAttribute('data-id', note.id);
+
+        const header = document.createElement('h4');
+        header.style.margin = '0';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.innerHTML = '<span>' + (note.title || '(无标题)') + '</span>' +
+                           '<span class="date" title="创建时间">' + formatDate(note.date) + '</span>';
+        card.appendChild(header);
+
+        const bodyExcerpt = document.createElement('div');
+        bodyExcerpt.className = 'excerpt';
+        bodyExcerpt.textContent = excerpt(note.body || '');
+        card.appendChild(bodyExcerpt);
+
+        const bodyPanel = document.createElement('div');
+        bodyPanel.className = 'body';
+        bodyPanel.textContent = note.body || '';
+        card.appendChild(bodyPanel);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        // 查看/隐藏
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'btn secondary';
+        viewBtn.textContent = '查看';
+        viewBtn.style.padding = '8px 12px';
+        viewBtn.addEventListener('click', () => {
+          const isHidden = bodyPanel.style.display === 'none' || bodyPanel.style.display === '';
+          bodyPanel.style.display = isHidden ? 'block' : 'none';
+          viewBtn.textContent = isHidden ? '收起' : '查看';
+        });
+        actions.appendChild(viewBtn);
+
+        // 复制
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'btn secondary';
+        copyBtn.textContent = '复制';
+        copyBtn.style.padding = '8px 12px';
+        copyBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(note.body || '');
+            copyBtn.textContent = '已复制';
+            setTimeout(() => copyBtn.textContent = '复制', 1200);
+          } catch {
+            alert('复制失败，请手动选择文本复制。');
+          }
+        });
+        actions.appendChild(copyBtn);
+
+        // 删除
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn ghost';
+        delBtn.textContent = '删除';
+        delBtn.style.padding = '8px 12px';
+        delBtn.addEventListener('click', () => {
+          if (confirm('确定要删除该笔记吗？')) {
+            deleteNote(note.id);
+          }
+        });
+        actions.appendChild(delBtn);
+
+        card.appendChild(actions);
+        return card;
+      }
+
+      function renderNotes(filter = '') {
+        const notes = loadNotes();
+        notesGrid.innerHTML = '';
+        const q = filter.trim().toLowerCase();
+        const list = notes.filter(n => {
+          if (!q) return true;
+          const hay = ((n.title||'') + ' ' + (n.body||'')).toLowerCase();
+          return hay.includes(q);
+        });
+        if (list.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'card';
+          empty.style.gridColumn = '1 / -1';
+          empty.textContent = '暂无笔记。请在左上方输入内容后点击 保存。';
+          notesGrid.appendChild(empty);
+          return;
+        }
+        list.forEach(note => {
+          notesGrid.appendChild(createCard(note));
+        });
+      }
+
+      function saveCurrentNote() {
+        const title = (titleInput.value || '').trim();
+        const body = (bodyInput.value || '').trim();
+        if (!title && !body) {
+          alert('请输入标题或笔记内容再保存。');
+          return;
+        }
+        const notes = loadNotes();
+        const note = {
+          id: Date.now(),
+          title: title,
+          body: body,
+          date: Date.now()
+        };
+        notes.unshift(note);
+        saveNotes(notes);
+        titleInput.value = '';
+        bodyInput.value = '';
+        renderNotes(searchInput.value);
+      }
+
+      function deleteNote(id) {
+        let notes = loadNotes();
+        notes = notes.filter(n => n.id !== Number(id));
+        saveNotes(notes);
+        renderNotes(searchInput.value);
+      }
+
+      // 导出JSON
+      function exportJSON() {
+        const notes = loadNotes();
+        const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'notes.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      // 导入JSON
+      function importJSON() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const text = await file.text();
+          try {
+            const arr = JSON.parse(text);
+            if (Array.isArray(arr)) {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+              renderNotes(searchInput.value);
+            } else {
+              alert('无效的笔记格式。');
+            }
+          } catch {
+            alert('导入失败，请确保文件是有效的 JSON。');
+          }
+        };
+        input.click();
+      }
+
+      // 清空全部
+      function clearAllNotes() {
+        if (confirm('确定要删除所有笔记吗？')) {
+          localStorage.removeItem(STORAGE_KEY);
+          renderNotes();
+        }
+      }
+
+      // 事件绑定
+      saveBtn.addEventListener('click', saveCurrentNote);
+      exportBtn.addEventListener('click', exportJSON);
+      importBtn.addEventListener('click', importJSON);
+      clearBtn.addEventListener('click', clearAllNotes);
+      searchInput.addEventListener('input', () => renderNotes(searchInput.value));
+
+      // 初始化
+      renderNotes();
+
+      // 初始聚焦
+      titleInput.focus();
+    })();
+  </script>
+</body>
+</html>

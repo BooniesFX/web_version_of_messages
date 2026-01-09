@@ -1,0 +1,212 @@
+
+{% extends "base.html" %}
+
+{% block title %}注册 - 漂流瓶{% endblock %}
+
+{% block content %}
+<div class="login-page min-vh-100 d-flex align-items-center">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-8 col-lg-5">
+                <div class="text-center mb-4">
+                    <h1 class="display-5 fw-bold text-white mb-0">
+                        <i class="fas fa-water me-2"></i>漂流瓶
+                    </h1>
+                    <p class="text-white-50 mt-2">发现未知的友谊，连接世界的角落</p>
+                </div>
+                
+                <div class="card login-card floating-animation">
+                    <div class="card-header login-header text-center">
+                        <h3><i class="fas fa-user-plus me-2"></i>创建账户</h3>
+                        <p class="mb-0 text-white-50">加入漂流瓶社区，开始您的探索之旅</p>
+                    </div>
+                    <div class="card-body login-body">
+                        <form method="POST" id="registerForm">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">姓名</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-signature"></i></span>
+                                    <input type="text" class="form-control" id="name" name="name" placeholder="请输入真实姓名" required autocomplete="name">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">密码</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required autocomplete="new-password">
+                                    <button class="btn btn-outline-secondary toggle-password" type="button">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="password-strength mt-2 d-none">
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <small class="text-muted">密码强度: <span class="strength-text">弱</span></small>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password_confirm" class="form-label">确认密码</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="password_confirm" name="password_confirm" placeholder="请再次输入密码" required autocomplete="new-password">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">电话</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                    <input type="tel" class="form-control" id="phone" name="phone" placeholder="请输入联系电话" required autocomplete="tel">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label for="place" class="form-label">国家</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-globe"></i></span>
+                                        <input type="text" class="form-control" id="place" name="place" placeholder="请输入所在国家" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="sex" class="form-label">性别</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-venus-mars"></i></span>
+                                        <select class="form-control" id="sex" name="sex" required>
+                                            <option value="">请选择性别</option>
+                                            <option value="男">男</option>
+                                            <option value="女">女</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-4 form-check">
+                                <input class="form-check-input" type="checkbox" id="agreeTerms" required>
+                                <label class="form-check-label" for="agreeTerms">
+                                    我已阅读并同意<a href="#" class="text-decoration-none">服务条款</a>和<a href="#" class="text-decoration-none">隐私政策</a>
+                                </label>
+                            </div>
+                            <div class="d-grid gap-3">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-user-plus me-2"></i>创建账户
+                                </button>
+                                <a href="{{ url_for('login') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-sign-in-alt me-2"></i>已有账号？立即登录
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <p class="text-white-50">
+                        <small>© 2023 漂流瓶 - 连接陌生人的桥梁</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-page {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        background-attachment: fixed;
+    }
+    
+    .toggle-password {
+        border-top-right-radius: 12px;
+        border-bottom-right-radius: 12px;
+    }
+    
+    .password-strength .progress-bar {
+        transition: width 0.3s ease;
+    }
+    
+    .password-strength.weak .progress-bar {
+        background-color: #dc3545;
+        width: 33%;
+    }
+    
+    .password-strength.medium .progress-bar {
+        background-color: #ffc107;
+        width: 66%;
+    }
+    
+    .password-strength.strong .progress-bar {
+        background-color: #28a745;
+        width: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // 密码显示/隐藏功能
+        $('.toggle-password').click(function() {
+            const passwordInput = $(this).closest('.input-group').find('input');
+            const icon = $(this).find('i');
+            
+            if (passwordInput.attr('type') === 'password') {
+                passwordInput.attr('type', 'text');
+                icon.removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                passwordInput.attr('type', 'password');
+                icon.removeClass('fa-eye-slash').addClass('fa-eye');
+            }
+        });
+        
+        // 密码强度检测
+        $('#password').on('input', function() {
+            const password = $(this).val();
+            const strengthDiv = $('.password-strength');
+            const strengthText = $('.strength-text');
+            
+            if (password.length === 0) {
+                strengthDiv.addClass('d-none');
+                return;
+            }
+            
+            strengthDiv.removeClass('d-none weak medium strong');
+            
+            // 简单的密码强度检测逻辑
+            let strength = 0;
+            if (password.length >= 8) strength += 1;
+            if (password.match(/[A-Z]/)) strength += 1;
+            if (password.match(/[0-9]/)) strength += 1;
+            if (password.match(/[^A-Za-z0-9]/)) strength += 1;
+            
+            if (strength <= 1) {
+                strengthDiv.addClass('weak');
+                strengthText.text('弱');
+            } else if (strength <= 3) {
+                strengthDiv.addClass('medium');
+                strengthText.text('中');
+            } else {
+                strengthDiv.addClass('strong');
+                strengthText.text('强');
+            }
+        });
+        
+        // 密码确认匹配检测
+        $('#password_confirm').on('input', function() {
+            const password = $('#password').val();
+            const confirmPassword = $(this).val();
+            
+            if (confirmPassword && password !== confirmPassword) {
+                $(this).addClass('is-invalid');
+            } else {
+                $(this).removeClass('is-invalid');
+            }
+        });
+        
+        // 添加表单提交动画
+        $('#registerForm').on('submit', function() {
+            $('button[type="submit"]').html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>注册中...');
+            $('button[type="submit"]').prop('disabled', true);
+        });
+    });
+</script>
+{% endblock %}

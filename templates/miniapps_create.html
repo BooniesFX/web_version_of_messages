@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Mini App - 漂流瓶{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="page-title"><i class="fas fa-plus-circle me-2"></i>Create Mini App</h2>
+        <a href="{{ url_for('miniapps_list') }}" class="btn btn-outline-secondary btn-sm float-end">
+            <i class="fas fa-arrow-left me-1"></i> Back to List
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-transparent border-bottom-0 pb-0">
+                <ul class="nav nav-tabs card-header-tabs" id="createTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload"
+                            type="button" role="tab">
+                            <i class="fas fa-upload me-1"></i> Upload HTML
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="generate-tab" data-bs-toggle="tab" data-bs-target="#generate"
+                            type="button" role="tab">
+                            <i class="fas fa-magic me-1"></i> Generate with AI
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content" id="createTabsContent">
+                    <!-- Upload Tab -->
+                    <div class="tab-pane fade show active" id="upload" role="tabpanel">
+                        <form action="{{ url_for('miniapps_upload') }}" method="post" enctype="multipart/form-data"
+                            class="p-3">
+                            <div class="mb-4 text-center">
+                                <i class="fas fa-file-upload fa-3x text-secondary mb-3"></i>
+                                <h5>Upload existing Mini App</h5>
+                                <p class="text-muted small">Upload a single HTML file containing your app.</p>
+                            </div>
+                            <div class="mb-3">
+                                <label for="file" class="form-label">Select HTML File</label>
+                                <input class="form-control" type="file" id="file" name="file" accept=".html" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-cloud-upload-alt me-1"></i> Upload
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Generate Tab -->
+                    <div class="tab-pane fade" id="generate" role="tabpanel">
+                        <div class="p-3">
+                            <div class="mb-4 text-center">
+                                <i class="fas fa-robot fa-3x text-primary mb-3"></i>
+                                <h5>Generate with AI</h5>
+                                <p class="text-muted small">Describe your app and let AI build it for you.</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="filename" class="form-label">App Name (Filename)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="filename"
+                                        placeholder="e.g., calculator">
+                                    <span class="input-group-text">.html</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="prompt" class="form-label">Description</label>
+                                <textarea class="form-control" id="prompt" rows="4"
+                                    placeholder="Describe what the app should do... e.g., A simple tic-tac-toe game with a score counter."></textarea>
+                            </div>
+
+                            <button type="button" id="generateBtn" class="btn btn-primary w-100">
+                                <i class="fas fa-magic me-1"></i> Generate App
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('generateBtn').addEventListener('click', function () {
+        const filename = document.getElementById('filename').value.trim();
+        const prompt = document.getElementById('prompt').value.trim();
+
+        if (!filename) {
+            alert('Please enter a filename.');
+            return;
+        }
+        if (!prompt) {
+            alert('Please enter a description.');
+            return;
+        }
+
+        const btn = document.getElementById('generateBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Starting...';
+
+        // Call API
+        fetch("{{ url_for('miniapps_generate') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                filename: filename,
+                prompt: prompt
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Redirect immediately to list page
+                    window.location.href = "{{ url_for('miniapps_list') }}";
+                } else {
+                    alert('Error: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-magic me-1"></i> Generate App';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while starting generation.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic me-1"></i> Generate App';
+            });
+    });
+</script>
+{% endblock %}

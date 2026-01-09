@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}个人资料 - 漂流瓶{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-edit"></i> 个人资料
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form id="profile-form" enctype="multipart/form-data">
+                        <!-- 头像上传 -->
+                        <div class="text-center mb-4">
+                            <div class="position-relative d-inline-block">
+                                <img id="avatar-preview" src="{{ url_for('static', filename=profile.avatar_path) if profile.avatar_path else 'https://picsum.photos/seed/avatar/150/150.jpg' }}" 
+                                     alt="头像" class="rounded-circle border border-3 border-primary" width="150" height="150">
+                                <label for="avatar-upload" class="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle p-2" style="cursor: pointer;">
+                                    <i class="fas fa-camera"></i>
+                                </label>
+                                <input type="file" id="avatar-upload" name="avatar" accept="image/*" class="d-none">
+                            </div>
+                        </div>
+                        
+                        <!-- 基本信息 -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="username" class="form-label">用户名</label>
+                                <input type="text" class="form-control" id="username" value="{{ profile.user_name }}" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">电话</label>
+                                <input type="text" class="form-control" id="phone" value="{{ user_info.phone }}" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="sex" class="form-label">性别</label>
+                                <input type="text" class="form-control" id="sex" value="{{ user_info.sex }}" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="place" class="form-label">地区</label>
+                                <input type="text" class="form-control" id="place" value="{{ user_info.place }}" readonly>
+                            </div>
+                        </div>
+                        
+                        <!-- 个人简介 -->
+                        <div class="mb-3">
+                            <label for="bio" class="form-label">个人简介</label>
+                            <textarea class="form-control" id="bio" name="bio" rows="3" maxlength="200" placeholder="介绍一下自己...">{{ profile.bio or '' }}</textarea>
+                            <div class="form-text text-end">
+                                <span id="bio-count">{{ profile.bio|length if profile.bio else 0 }}</span>/200
+                            </div>
+                        </div>
+                        
+                        <!-- 生日 -->
+                        <div class="mb-3">
+                            <label for="birth-date" class="form-label">生日</label>
+                            <input type="date" class="form-control" id="birth-date" name="birth_date" value="{{ profile.birth_date or '' }}">
+                        </div>
+                        
+                        <!-- 主题偏好 -->
+                        <div class="mb-3">
+                            <label class="form-label">主题偏好</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="theme_preference" id="theme-light" value="light" {{ 'checked' if profile.theme_preference == 'light' else '' }}>
+                                    <label class="form-check-label" for="theme-light">
+                                        <i class="fas fa-sun"></i> 浅色
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="theme_preference" id="theme-dark" value="dark" {{ 'checked' if profile.theme_preference == 'dark' else '' }}>
+                                    <label class="form-check-label" for="theme-dark">
+                                        <i class="fas fa-moon"></i> 深色
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="theme_preference" id="theme-auto" value="auto" {{ 'checked' if profile.theme_preference == 'auto' else '' }}>
+                                    <label class="form-check-label" for="theme-auto">
+                                        <i class="fas fa-adjust"></i> 自动
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <!-- 提交按钮 -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 保存更改
+                            </button>
+                            <a href="{{ url_for('main') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> 返回主页
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 成功提示模态框 -->
+<div class="modal fade" id="success-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                <h5>保存成功</h5>
+                <p class="text-muted">您的个人资料已更新</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // 头像预览
+        $('#avatar-upload').change(function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#avatar-preview').attr('src', e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // 个人简介字数统计
+        $('#bio').on('input', function() {
+            const count = $(this).val().length;
+            $('#bio-count').text(count);
+            
+            if (count > 200) {
+                $(this).val($(this).val().substring(0, 200));
+                $('#bio-count').text(200);
+            }
+        });
+        
+        // 表单提交
+        $('#profile-form').submit(function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            $.ajax({
+                url: "{{ url_for('update_user_profile') }}",
+                type: "POST",
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: "json",
+                success: function(response) {
+                    if (response.success) {
+                        $('#success-modal').modal('show');
+                        
+                        // 如果主题设置有变化，应用新主题
+                        const newTheme = $('input[name="theme_preference"]:checked').val();
+                        if (typeof applyTheme === 'function') {
+                            applyTheme(newTheme);
+                        }
+                    } else {
+                        alert('更新失败: ' + response.message);
+                    }
+                },
+                error: function() {
+                    alert('更新失败，请检查网络连接');
+                }
+            });
+        });
+        
+        // 初始化主题
+        const savedTheme = localStorage.getItem('theme') || '{{ profile.theme_preference }}';
+        if (savedTheme) {
+            $(`input[name="theme_preference"][value="${savedTheme}"]`).prop('checked', true);
+        }
+    });
+</script>
+
+<style>
+    /* 主题样式 */
+    body.theme-light {
+        --bg-color: #ffffff;
+        --text-color: #333333;
+        --card-bg: #ffffff;
+        --border-color: #e1e1e1;
+    }
+    
+    body.theme-dark {
+        --bg-color: #1a1a1a;
+        --text-color: #f0f0f0;
+        --card-bg: #2d2d2d;
+        --border-color: #444444;
+    }
+    
+    body.theme-light .card {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+    
+    body.theme-dark .card {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+    
+    body.theme-dark .form-control {
+        background-color: #3d3d3d;
+        color: #f0f0f0;
+        border-color: #555555;
+    }
+    
+    body.theme-dark .form-control:focus {
+        background-color: #3d3d3d;
+        color: #f0f0f0;
+        border-color: #667eea;
+    }
+    
+    body.theme-dark .form-label {
+        color: #f0f0f0;
+    }
+    
+    body.theme-dark .modal-content {
+        background-color: #2d2d2d;
+        color: #f0f0f0;
+    }
+    
+    body.theme-dark .navbar {
+        background-color: #2d2d2d !important;
+    }
+    
+    body.theme-dark .navbar-light .navbar-nav .nav-link {
+        color: #f0f0f0;
+    }
+    
+    body.theme-dark .navbar-brand {
+        color: #f0f0f0 !important;
+    }
+</style>
+{% endblock %}

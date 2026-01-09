@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talk Room</title>
+    <style>
+        body { font-family: sans-serif; }
+        #videos { display: flex; flex-wrap: wrap; }
+        .video-container { margin: 5px; border: 1px solid #ccc; }
+        .video-container video { width: 320px; height: 240px; }
+        .video-container p { text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Public Talk Room</h1>
+    <div id="audios"></div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const username = "{{ username }}";
+        const peers = {};
+        let localStream;
+
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+            .then(stream => {
+                localStream = stream;
+                socket.emit('join', { username: username });
+            })
+            .catch(err => {
+                console.error('Error accessing media devices.', err);
+            });
+
+        socket.on('user-joined', (data) => {
+            console.log(data.username, 'joined');
+            const peer = createPeer(data.sid, socket.id);
+            peers[data.sid] = peer;
+        });
+
+        socket.on('signal', (data) => {
+            const peer = peers[data.from];
+            if (peer) {
+                peer.signal(data.signal);
+            }
+        });
+
+        socket.on('user-left', (data) => {
+            console.log(data.username, 'left');
+            const audio = document.getElementById(data.sid);
+            if (audio) {
+                audio.remove();
+            }
+            if (peers[data.sid]) {
+                peers[data.sid].destroy();
+                delete peers[data.sid];
+            }
+        });
+
+        function createPeer(userToSignal, caller) {
+            const peer = new SimplePeer({
+                initiator: true,
+                trickle: false,
+                stream: localStream,
+            });
+
+            peer.on('signal', (signal) => {
+                socket.emit('signal', {
+                    to: userToSignal,
+                    from: caller,
+                    signal,
+                });
+            });
+
+            peer.on('stream', (stream) => {
+                const audio = document.createElement('audio');
+                audio.id = userToSignal;
+                audio.srcObject = stream;
+                audio.play();
+                document.getElementById('audios').appendChild(audio);
+            });
+
+            return peer;
+        }
+
+        window.addEventListener('beforeunload', () => {
+            socket.emit('leave', { username: username });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
+</body>
+</html>

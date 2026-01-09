@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}漂流瓶{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary-color: #7e22ce;
+            --accent-color: #0ea5e9;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --info-color: #3b82f6;
+            --dark-color: #1f2937;
+            --light-color: #f9fafb;
+            --gray-color: #6b7280;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --border-radius: 0.35rem;
+            --transition-speed: 0.3s;
+        }
+
+        /* 暗黑模式变量 */
+        [data-theme="dark"] {
+            --primary-color: #6e8fff;
+            --primary-light: #9dabff;
+            --secondary-color: #9d4edd;
+            --accent-color: #38bdf8;
+            --success-color: #2ee59d;
+            --danger-color: #ff6b6b;
+            --warning-color: #ffd54f;
+            --info-color: #60a5fa;
+            --dark-color: #e9ecef;
+            --light-color: #2c2f33;
+            --gray-color: #9da3b4;
+            --card-bg: rgba(40, 44, 52, 0.95);
+            --glass-bg: rgba(40, 44, 52, 0.7);
+            --glass-border: rgba(60, 64, 72, 0.18);
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            background-attachment: fixed;
+            min-height: 100vh;
+            font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            margin: 0;
+            color: var(--dark-color);
+        }
+
+        [data-theme="dark"] body {
+            background-image: linear-gradient(135deg, #1a1d21 0%, #2c3e50 100%);
+            color: var(--light-color);
+        }
+
+        /* 主题切换按钮 */
+        .theme-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .navbar {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 0.75rem 1rem;
+        }
+
+        [data-theme="dark"] .navbar {
+            background: var(--glass-bg);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .card {
+            border-radius: 16px;
+            background: var(--card-bg);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--glass-border);
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        [data-theme="dark"] .card {
+            background: var(--card-bg);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            max-width: 480px;
+            margin: 3rem auto;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-radius: 16px 16px 0 0 !important;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .login-body {
+            padding: 2.5rem;
+        }
+
+        .btn {
+            border-radius: 50px;
+            padding: 12px 24px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-light), var(--accent-color));
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-outline-primary {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            background: transparent;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color), #34d399);
+            border: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color), #f87171);
+            border: none;
+        }
+
+        .form-control {
+            border-radius: 12px;
+            padding: 14px 20px;
+            border: 2px solid rgba(229, 231, 235, 0.8);
+            transition: all 0.3s ease;
+            background-color: rgba(255, 255, 255, 0.9);
+            font-size: 1rem;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+            background-color: white;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            letter-spacing: 0.3px;
+        }
+
+        .input-group-text {
+            border-radius: 12px 0 0 12px;
+            background-color: rgba(243, 244, 246, 0.8);
+            border: 2px solid rgba(229, 231, 235, 0.8);
+            border-right: none;
+            color: var(--gray-color);
+        }
+
+        .message-bubble {
+            border-radius: 18px;
+            padding: 14px 20px;
+            margin-bottom: 16px;
+            max-width: 75%;
+            word-wrap: break-word;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+
+        .sent-message {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .received-message {
+            background-color: white;
+            color: var(--dark-color);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: rgba(249, 250, 251, 0.8);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.05);
+            scroll-behavior: smooth;
+        }
+
+        .message-input-container {
+            background-color: var(--glass-bg);
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .message-input {
+            border: 2px solid rgba(229, 231, 235, 0.8);
+            border-radius: 12px;
+            padding: 14px 20px;
+            background-color: white;
+            transition: all 0.3s ease;
+        }
+
+        .message-input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+
+        .user-info-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: linear-gradient(135deg, var(--danger-color), #f87171);
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.5rem;
+            }
+
+            .card {
+                border-radius: 12px;
+                margin-bottom: 1rem;
+            }
+
+            .navbar-brand {
+                font-size: 1.2rem;
+            }
+
+            .theme-toggle {
+                width: 40px;
+                height: 40px;
+                bottom: 15px;
+                right: 15px;
+            }
+
+            .btn {
+                padding: 0.375rem 0.75rem;
+            }
+
+            .form-control {
+                font-size: 0.9rem;
+            }
+
+            .chat-container {
+                height: calc(100vh - 200px);
+            }
+
+            .message-input-container {
+                padding: 0.5rem;
+            }
+        }
+
+        /* 小屏幕设备优化 */
+        @media (max-width: 576px) {
+            .container {
+                padding: 0.25rem;
+            }
+
+            h1,
+            .h1 {
+                font-size: 1.5rem;
+            }
+
+            h2,
+            .h2 {
+                font-size: 1.25rem;
+            }
+
+            .card-body {
+                padding: 0.75rem;
+            }
+
+            .navbar .container {
+                padding: 0.25rem 0.5rem;
+            }
+
+            .nav-link {
+                padding: 0.25rem 0.5rem;
+            }
+
+            .btn-group>.btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .floating-animation {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        .input-group-text {
+            background-color: var(--accent-color);
+            color: white;
+            border: 2px solid var(--accent-color);
+            border-radius: 25px 0 0 25px;
+        }
+
+        .input-group .form-control {
+            border-radius: 0 25px 25px 0;
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, var(--accent-color), #64b5f6);
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 12px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .main-content {
+            padding: 2rem 1rem;
+            margin-top: 20px;
+        }
+
+        .page-title {
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--dark-color);
+            position: relative;
+            display: inline-block;
+        }
+
+        .page-title:after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            border-radius: 2px;
+        }
+
+        .nav-link {
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin: 0 3px;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(79, 70, 229, 0.1);
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="{{ url_for('main') if session.username else url_for('login') }}">
+                <i class="fas fa-wine-bottle me-2"></i> 漂流瓶 v2.0
+            </a>
+
+            {% if session.username %}
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('main') }}"><i class="fas fa-home me-1"></i> 主页</a>
+                <a class="nav-link" href="{{ url_for('miniapps_list') }}"><i class="fas fa-gamepad me-1"></i> Mini
+                    Apps</a>
+                <a class="nav-link" href="{{ url_for('profile_page') }}">
+                    <i class="fas fa-user me-1"></i> 个人资料
+                </a>
+                <a class="nav-link" href="{{ url_for('about') }}"><i class="fas fa-info-circle me-1"></i> 关于</a>
+                <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-1"></i> 退出</a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+            role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- 主题切换按钮 -->
+    <div class="theme-toggle" id="themeToggle">
+        <i class="fas fa-moon"></i>
+    </div>
+
+    <!-- 主题切换脚本 -->
+    <script>
+        // 检查本地存储中的主题设置
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+
+        // 更新主题图标
+        const themeIcon = document.querySelector('#themeToggle i');
+        if (currentTheme === 'dark') {
+            themeIcon.classList.replace('fa-moon', 'fa-sun');
+        }
+
+        // 主题切换功能
+        document.getElementById('themeToggle').addEventListener('click', function () {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+            // 应用新主题
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+
+            // 切换图标
+            const themeIcon = document.querySelector('#themeToggle i');
+            if (newTheme === 'dark') {
+                themeIcon.classList.replace('fa-moon', 'fa-sun');
+            } else {
+                themeIcon.classList.replace('fa-sun', 'fa-moon');
+            }
+
+            // 添加页面过渡动画
+            document.body.style.opacity = '0.8';
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+            }, 300);
+        });
+
+        // 页面加载动画
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.classList.add('loaded');
+        });
+    </script>
+
+    <!-- 全局主题样式 -->
+    <style>
+        /* 主题样式 */
+        body.theme-light {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --card-bg: #ffffff;
+            --border-color: #e1e1e1;
+            --input-bg: #ffffff;
+            --input-text: #333333;
+            --navbar-bg: rgba(255, 255, 255, 0.95);
+            --navbar-text: #333333;
+        }
+
+        body.theme-dark {
+            --bg-color: #1a1a1a;
+            --text-color: #f0f0f0;
+            --card-bg: #2d2d2d;
+            --border-color: #444444;
+            --input-bg: #3d3d3d;
+            --input-text: #f0f0f0;
+            --navbar-bg: #2d2d2d;
+            --navbar-text: #f0f0f0;
+        }
+
+        body.theme-auto {
+            /* 默认使用浅色主题，然后根据系统设置自动切换 */
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --card-bg: #ffffff;
+            --border-color: #e1e1e1;
+            --input-bg: #ffffff;
+            --input-text: #333333;
+            --navbar-bg: rgba(255, 255, 255, 0.95);
+            --navbar-text: #333333;
+        }
+
+        /* 应用主题到基本元素 */
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border-color: var(--border-color);
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .form-control {
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border-color: var(--border-color);
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border-color: #667eea;
+        }
+
+        .form-label {
+            color: var(--text-color);
+        }
+
+        .navbar {
+            background-color: var(--navbar-bg) !important;
+            transition: background-color 0.3s ease;
+        }
+
+        .navbar-light .navbar-nav .nav-link {
+            color: var(--navbar-text);
+        }
+
+        .navbar-brand {
+            color: var(--navbar-text) !important;
+        }
+
+        .list-group-item {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border-color: var(--border-color);
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        .btn-close {
+            filter: var(--text-color);
+        }
+
+        .text-muted {
+            color: var(--text-color) !important;
+            opacity: 0.7;
+        }
+
+        .alert {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        /* 消息气泡主题样式 */
+        .sent-message {
+            background-color: #1976d2;
+            color: white;
+        }
+
+        .received-message {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+    </style>
+
+    {% if session.username %}
+    <script>
+        // 应用主题
+        function applyTheme(theme) {
+            $('body').removeClass('theme-light theme-dark theme-auto');
+
+            if (theme === 'auto') {
+                // 根据系统设置自动选择主题
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    $('body').addClass('theme-dark');
+                } else {
+                    $('body').addClass('theme-light');
+                }
+            } else {
+                $('body').addClass('theme-' + theme);
+            }
+
+            // 保存主题偏好到本地存储
+            localStorage.setItem('theme', theme);
+        }
+
+        // 监听系统主题变化（仅当设置为自动时）
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+                const savedTheme = localStorage.getItem('theme') || '{{ profile.theme_preference if profile else "light" }}';
+                if (savedTheme === 'auto') {
+                    applyTheme('auto');
+                }
+            });
+        }
+
+        // 心跳检测，保持用户在线状态
+        let heartbeatInterval;
+
+        function startHeartbeat() {
+            // 立即更新一次在线状态
+            updateUserStatus(true);
+
+            // 每30秒发送一次心跳
+            heartbeatInterval = setInterval(function () {
+                updateUserStatus(true);
+            }, 30000);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+            }
+            // 更新用户为离线状态
+            updateUserStatus(false);
+        }
+
+        function updateUserStatus(isOnline) {
+            $.ajax({
+                url: "{{ url_for('update_user_status') }}",
+                type: "POST",
+                data: {
+                    is_online: isOnline ? '1' : '0'
+                },
+                async: false  // 同步请求，确保在页面关闭前完成
+            });
+        }
+
+        // 页面加载时检查一次
+        $(document).ready(function () {
+            // 初始化主题
+            const savedTheme = localStorage.getItem('theme') || '{{ profile.theme_preference if profile else "light" }}';
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            }
+
+            checkUnreadNotifications();
+            startHeartbeat();
+
+            // 每30秒检查一次未读通知
+            // 但是，我已经手动关闭了通知中心的功能
+            // setInterval(checkUnreadNotifications, 30000);
+
+            // 页面关闭或刷新时更新用户状态为离线
+            $(window).on('beforeunload', function () {
+                stopHeartbeat();
+            });
+
+            // 监听页面可见性变化
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') {
+                    // 页面变为可见时，重新开始心跳
+                    startHeartbeat();
+                } else {
+                    // 页面隐藏时，停止心跳
+                    if (heartbeatInterval) {
+                        clearInterval(heartbeatInterval);
+                    }
+                }
+            });
+        });
+    </script>
+    {% else %}
+    <script>
+        // 未登录用户也应用主题
+        $(document).ready(function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            if (savedTheme === 'auto') {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    $('body').addClass('theme-dark');
+                } else {
+                    $('body').addClass('theme-light');
+                }
+            } else {
+                $('body').addClass('theme-' + savedTheme);
+            }
+        });
+    </script>
+    {% endif %}
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        var socket = io();
+
+        socket.on('connect', function () {
+            console.log('Connected to WebSocket server');
+        });
+
+        socket.on('status_change', function (data) {
+            // Update user status in UI if visible
+            if (typeof updateStatusUI === 'function') {
+                updateStatusUI(data);
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

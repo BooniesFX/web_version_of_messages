@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}Mini Apps - 漂流瓶{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="page-title"><i class="fas fa-gamepad me-2"></i>Mini Apps</h2>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('miniapps_create') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Create New App
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    {% if apps %}
+    {% for app in apps %}
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 {% if app['status'] == 'generating' %}border-warning{% endif %}">
+            <div class="card-body text-center d-flex flex-column">
+                <div class="mb-3 position-relative">
+                    <i
+                        class="fas fa-file-code fa-3x {% if app['status'] == 'generating' %}text-warning{% elif app['status'] =='failed' %}text-danger{% else %}text-primary{% endif %}"></i>
+                    {% if app['status'] == 'generating' %}
+                    <div class="spinner-border spinner-border-sm text-warning position-absolute top-0 start-100 translate-middle"
+                        role="status"></div>
+                    {% endif %}
+                </div>
+
+                <h5 class="card-title text-truncate" title="{{ app['filename'] }}">{{ app['filename'] }}</h5>
+                <p class="card-text small text-muted text-truncate">{{ app['description'] or 'No description' }}</p>
+                <p class="card-text small text-muted">By: {{ app['creator_name'] }}</p>
+
+                <div class="mt-auto">
+                    {% if app['status'] == 'ready' %}
+                    <a href="{{ url_for('serve_miniapp', filename=app['filename']) }}"
+                        class="btn btn-outline-primary w-100 mb-2" target="_blank">
+                        <i class="fas fa-play me-1"></i> Open App
+                    </a>
+                    {% elif app['status'] == 'generating' %}
+                    <button class="btn btn-outline-warning w-100 mb-2" disabled>
+                        <i class="fas fa-cog fa-spin me-1"></i> Generating...
+                    </button>
+                    {% else %}
+                    <button class="btn btn-outline-danger w-100 mb-2" disabled>
+                        <i class="fas fa-exclamation-triangle me-1"></i> Failed
+                    </button>
+                    {% endif %}
+
+                    {% if session.username == app['creator_name'] %}
+                    <button class="btn btn-sm btn-outline-danger border-0 w-100"
+                        onclick="confirmDelete('{{ app['filename'] }}')">
+                        <i class="fas fa-trash-alt me-1"></i> Delete
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="col-12 text-center py-5">
+        <div class="text-muted">
+            <i class="fas fa-box-open fa-3x mb-3"></i>
+            <p class="h5">No Mini Apps available yet.</p>
+            <p>Create or upload one to get started!</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- SocketIO for auto-refresh -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    var socket = io();
+    socket.on('miniapp_generated', function (data) {
+        // If the generated app belongs to current view (or just refresh for simplicity)
+        location.reload();
+    });
+
+    // Auto-refresh every 5 seconds if there are generating apps (fallback)
+    {% if apps | selectattr("status", "equalto", "generating") | list | length > 0 %}
+    setTimeout(function () {
+        location.reload();
+    }, 5000);
+    {% endif %}
+
+    function confirmDelete(filename) {
+        if (confirm('Are you sure you want to delete ' + filename + '? This cannot be undone.')) {
+            fetch("{{ url_for('miniapps_delete', filename='') }}" + filename, {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred.');
+                });
+        }
+    }
+</script>
+{% endblock %}

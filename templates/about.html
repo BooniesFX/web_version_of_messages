@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}关于 - 漂流瓶{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header text-center">
+                <h3><i class="fas fa-info-circle"></i> 关于漂流瓶</h3>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h2>漂流瓶 v2.0</h2>
+                    <p class="text-muted">网页版</p>
+                </div>
+                
+                <h5>版本信息</h5>
+                <ul>
+                    <li><strong>当前版本:</strong> v2.0 网页版</li>
+                    <li><strong>原始版本:</strong> v1.1 命令行版</li>
+                </ul>
+                
+                <h5>主要功能</h5>
+                <ul>
+                    <li>用户注册和登录</li>
+                    <li>发送和接收漂流瓶消息</li>
+                    <li>私聊功能（文本和图片）</li>
+                    <li>群组聊天功能</li>
+                    <li>消息已读未读状态显示</li>
+                    <li>好友搜索和添加</li>
+                    <li>群组创建和管理</li>
+                </ul>
+                
+                <h5>技术栈</h5>
+                <ul>
+                    <li><strong>后端:</strong> Python, Flask, SQLite</li>
+                    <li><strong>前端:</strong> HTML, CSS, JavaScript, Bootstrap 5, jQuery</li>
+                    <li><strong>数据库:</strong> SQLite</li>
+                </ul>
+                
+                <h5>版本历史</h5>
+                <ul>
+                    <li><strong>v1.1</strong> - 基础命令行版本</li>
+                    <li><strong>v2.0</strong> - 图形界面版本，新增私聊和图片功能</li>
+                    <li><strong>v2.0 网页版</strong> - 基于Flask的网页版本，新增群组功能</li>
+                </ul>
+                
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-download"></i> 下载程序</h5>
+                    <p>您可以下载完整的漂流瓶程序源代码：</p>
+                    <a href="{{ url_for('download') }}" class="btn btn-success">
+                        <i class="fas fa-download"></i> 下载完整程序
+                    </a>
+                    <a href="https://github.com/BoonieBear/chatingAPP" class="btn btn-primary" target="_blank">
+                        <i class="fab fa-github"></i> GitHub仓库
+                    </a>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <p class="text-muted">2025 FYH 开发团队.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

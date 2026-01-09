@@ -1,0 +1,1559 @@
+{% extends "base.html" %}
+
+{% block title %}主页 - 漂流瓶{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card user-info-card mb-4">
+            <div class="card-body text-center">
+                <h2><i class="fas fa-user"></i> 欢迎, {{ user_info.name }}!</h2>
+                <p class="mb-0">
+                    <i class="fas fa-globe"></i> 国家: {{ user_info.place }} |
+                    <i class="fas fa-venus-mars"></i> 性别: {{ user_info.sex }}
+                </p>
+                <div class="mt-2">
+                    <div class="form-check form-switch d-inline-block">
+                        <input class="form-check-input" type="checkbox" id="aiAutoReplyToggle">
+                        <label class="form-check-label" for="aiAutoReplyToggle">AI自动回复</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12 text-center">
+        <div class="btn-group-lg" role="group">
+            <button type="button" class="btn btn-primary btn-lg me-3 floating-animation" id="sendBottleBtn">
+                <i class="fas fa-paper-plane"></i> 发送漂流瓶
+            </button>
+            <a href="{{ url_for('moments') }}" class="btn btn-info btn-lg mx-3 floating-animation">
+                <i class="fas fa-globe-asia"></i> 朋友圈
+            </a>
+            <button type="button" class="btn btn-success btn-lg ms-3 floating-animation" id="receiveBottleBtn">
+                <i class="fas fa-anchor"></i> 接收漂流瓶
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="row h-100">
+            <div class="col-6 pe-2">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-comments"></i> 聊天列表</h5>
+                        <div>
+                            <button class="btn btn-sm btn-light" id="addAiFriendBtn" title="添加AI助手">
+                                <i class="fas fa-robot"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" id="summarizeBtn" title="总结未读消息">
+                                <i class="fas fa-magic"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush" id="chatUserList"
+                            style="max-height: 300px; overflow-y: auto;">
+                            <!-- 聊天用户列表将通过JavaScript动态加载 -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-6 ps-2">
+                <div class="card h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5><i class="fas fa-users"></i> 群组</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush" id="groupList"
+                            style="max-height: 300px; overflow-y: auto;">
+                            <!-- 群组列表将通过JavaScript动态加载 -->
+                        </ul>
+                    </div>
+                    <div class="card-footer p-2">
+                        <button class="btn btn-sm btn-success w-100" id="createGroupBtn">
+                            <i class="fas fa-plus"></i> 创建
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mt-3">
+                <!-- 搜索用户面板 -->
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5><i class="fas fa-search"></i> 搜索用户</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="searchInput" placeholder="输入用户名">
+                            <button class="btn btn-outline-primary" type="button" id="searchBtn">
+                                <i class="fas fa-search"></i> 搜索
+                            </button>
+                        </div>
+                        <div id="searchResults" style="min-height: 50px;">
+                            <!-- 搜索结果将在这里显示 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-comment-dots"></i> 聊天窗口</h5>
+            </div>
+            <div class="card-body d-flex flex-column p-0">
+                <div class="chat-container flex-grow-1" id="chatContainer">
+                    <div class="d-flex justify-content-center align-items-center h-100">
+                        <div class="text-center">
+                            <i class="fas fa-comment-alt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">选择一个聊天或开始新聊天</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="message-input-container p-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control message-input" id="messageInput" placeholder="输入消息..."
+                            disabled>
+                        <button class="btn btn-secondary" type="button" id="generateReplyBtn" disabled title="AI生成回复">
+                            <i class="fas fa-magic"></i>
+                        </button>
+                        <button class="btn btn-warning" type="button" id="recordVoiceBtn" disabled>
+                            <i class="fas fa-microphone"></i> 语音
+                        </button>
+                        <button class="btn btn-success" type="button" id="sendImageBtn" disabled>
+                            <i class="fas fa-image"></i> 发图
+                        </button>
+                        <button class="btn btn-info" type="button" id="sendFileBtn" disabled>
+                            <i class="fas fa-file"></i> 发文件
+                        </button>
+                        <button class="btn btn-primary" type="button" id="sendMessageBtn" disabled>
+                            <i class="fas fa-paper-plane"></i> 发送
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 发送漂流瓶模态框 -->
+<div class="modal fade" id="sendBottleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-paper-plane"></i> 发送漂流瓶</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="bottleMessage" class="form-label">消息内容</label>
+                    <textarea class="form-control" id="bottleMessage" rows="4" maxlength="100"
+                        placeholder="请输入消息（最多100字）"></textarea>
+                    <div class="form-text">还可以输入 <span id="charCount">100</span> 字符</div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="persistentCheck">
+                    <label class="form-check-label" for="persistentCheck">
+                        永久保存漂流瓶（默认在回复时删除）
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="sendBottleSubmit">发送</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 接收漂流瓶模态框 -->
+<div class="modal fade" id="receiveBottleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-anchor"></i> 接收漂流瓶</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="bottleContent">
+                    <div class="text-center">
+                        <i class="fas fa-anchor fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">点击"接收"按钮捞取漂流瓶</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-success" id="receiveBottleSubmit">接收</button>
+                <button type="button" class="btn btn-primary" id="replyBottleBtn" style="display: none;">回复</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 发送图片模态框 -->
+<div class="modal fade" id="sendImageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-image"></i> 发送图片</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendImageForm" enctype="multipart/form-data">
+                    <input type="hidden" id="imageReceiver" name="receiver">
+                    <div class="mb-3">
+                        <label for="imageFile" class="form-label">选择图片</label>
+                        <input class="form-control" type="file" id="imageFile" name="image" accept="image/*">
+                    </div>
+                    <div class="mb-3" id="imagePreviewContainer" style="display: none;">
+                        <label class="form-label">图片预览</label>
+                        <img id="imagePreview" src="" class="img-fluid rounded" style="max-height: 200px;">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" id="sendImageSubmit">发送</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 发送文件模态框 -->
+<div class="modal fade" id="sendFileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-file"></i> 发送文件</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendFileForm" enctype="multipart/form-data">
+                    <input type="hidden" id="fileReceiver" name="receiver">
+                    <div class="mb-3">
+                        <label for="fileInput" class="form-label">选择文件</label>
+                        <input class="form-control" type="file" id="fileInput" name="file">
+                    </div>
+                    <div class="mb-3" id="filePreviewContainer" style="display: none;">
+                        <label class="form-label">文件信息</label>
+                        <div class="alert alert-info">
+                            <div><strong>文件名:</strong> <span id="fileName"></span></div>
+                            <div><strong>文件大小:</strong> <span id="fileSize"></span></div>
+                            <div><strong>文件类型:</strong> <span id="fileType"></span></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-info" id="sendFileSubmit">发送</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建群组模态框 -->
+<div class="modal fade" id="createGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-users"></i> 创建群组</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="groupName" class="form-label">群组名称</label>
+                    <input type="text" class="form-control" id="groupName" placeholder="请输入群组名称">
+                </div>
+                <div class="mb-3">
+                    <label for="groupDescription" class="form-label">群组描述（可选）</label>
+                    <textarea class="form-control" id="groupDescription" rows="3" placeholder="请输入群组描述"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="groupAvatar" class="form-label">群组头像（可选）</label>
+                    <input class="form-control" type="file" id="groupAvatar" accept="image/*">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" id="createGroupSubmit">创建</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 群组成员模态框 -->
+<div class="modal fade" id="groupMembersModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-users"></i> 群组成员</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="currentGroupId">
+                <div id="inviteLinkContainer"></div>
+                <div class="mb-3">
+                    <label for="addMemberInput" class="form-label">添加成员</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="addMemberInput" placeholder="输入用户名">
+                        <button class="btn btn-outline-primary" type="button" id="addMemberBtn">
+                            <i class="fas fa-user-plus"></i> 添加
+                        </button>
+                    </div>
+                </div>
+                <div id="groupMembersList">
+                    <!-- 群组成员列表将在这里显示 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 设置群公告模态框 -->
+<div class="modal fade" id="setAnnouncementModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title"><i class="fas fa-bullhorn"></i> 设置群公告</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="announcementGroupId">
+                <div class="mb-3">
+                    <label for="announcementText" class="form-label">公告内容</label>
+                    <textarea class="form-control" id="announcementText" rows="5" placeholder="请输入群公告内容"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-warning" id="saveAnnouncementBtn">保存公告</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentChatUser = null;
+    let chatRefreshInterval = null;
+    let currentBottleData = null;  // 存储当前漂流瓶数据
+
+    $(document).ready(function () {
+        // Initialize AI Auto-Reply Toggle
+        $.get('/get_ai_auto_reply_status', function (data) {
+            if (data.success) {
+                $('#aiAutoReplyToggle').prop('checked', data.enabled);
+            }
+        });
+
+        $('#aiAutoReplyToggle').change(function () {
+            const enabled = $(this).is(':checked');
+            $.ajax({
+                url: '/toggle_ai_auto_reply',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ enabled: enabled }),
+                success: function (data) {
+                    if (!data.success) {
+                        alert(data.message);
+                        $('#aiAutoReplyToggle').prop('checked', !enabled); // Revert
+                    }
+                }
+            });
+        });
+
+        // Add AI Friend
+        $('#addAiFriendBtn').click(function () {
+            if (confirm('确定要添加AI助手为好友吗？')) {
+                $.post('/add_ai_friend', function (data) {
+                    alert(data.message);
+                    if (data.success) {
+                        loadChatUsers();
+                    }
+                });
+            }
+        });
+
+        // Summarize Unread
+        $('#summarizeBtn').click(function () {
+            const btn = $(this);
+            const originalHtml = btn.html();
+            btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+
+            $.post('/summarize_unread', function (data) {
+                btn.html(originalHtml).prop('disabled', false);
+                if (data.success) {
+                    alert(data.summary);
+                } else {
+                    alert(data.message);
+                }
+            });
+        });
+
+        // Generate Reply
+        $('#generateReplyBtn').click(function () {
+            if (!currentChatUser) return;
+
+            const btn = $(this);
+            const originalHtml = btn.html();
+            btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+
+            $.ajax({
+                url: '/generate_reply',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ chat_with: currentChatUser }),
+                success: function (data) {
+                    btn.html(originalHtml).prop('disabled', false);
+                    if (data.success) {
+                        $('#messageInput').val(data.reply);
+                    } else {
+                        alert(data.message);
+                    }
+                },
+                error: function () {
+                    btn.html(originalHtml).prop('disabled', false);
+                    alert('生成回复失败');
+                }
+            });
+        });
+
+        // Enable/Disable Generate Reply Button
+        // Hook into openChat or similar if possible, or just rely on currentChatUser check
+        // We need to enable the button when chat is opened.
+        // Since openChat is defined later or globally, we might need to modify it or add a listener.
+        // But for now, let's just enable it when messageInput is enabled.
+        // We can observe the disabled attribute of messageInput? 
+        // Or just simpler: modify openChat function if we can find it.
+        // Wait, openChat is not in the visible code block I saw earlier (it was truncated).
+        // I'll assume openChat enables messageInput. I should add logic to enable generateReplyBtn too.
+
+        // Let's add a MutationObserver to messageInput to sync disabled state
+        const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.attributeName === "disabled") {
+                    $('#generateReplyBtn').prop('disabled', $('#messageInput').prop('disabled'));
+                }
+            });
+        });
+        observer.observe(document.getElementById('messageInput'), { attributes: true });
+
+        // Socket.IO Events
+        socket.on('new_private_message', function (data) {
+            if (currentChatUser === data.sender || data.sender === '{{ user_info.name }}') {
+                loadChatMessages();
+            } else {
+                loadChatUsers(); // Refresh list to show badge
+            }
+        });
+
+        socket.on('new_group_message', function (data) {
+            if (currentGroupId == data.group_id) {
+                loadGroupMessages();
+            }
+        });
+
+        socket.on('typing', function (data) {
+            if (currentChatUser === data.sender) {
+                // Show typing indicator (simplified)
+                var header = $('.card-header.bg-info.text-white h5').eq(1);
+                if (header.find('.typing-indicator').length === 0) {
+                    header.append(' <small class="text-light typing-indicator">(正在输入...)</small>');
+                    setTimeout(function () {
+                        header.find('.typing-indicator').remove();
+                    }, 3000);
+                }
+            }
+        });
+
+        // 加载聊天用户列表
+        loadChatUsers();
+
+        // 加载群组列表
+        loadGroupList();
+
+        // 设置定时刷新聊天用户列表
+        setInterval(loadChatUsers, 5000);
+
+        // 设置定时刷新群组列表
+        setInterval(loadGroupList, 5000);
+
+        // 发送漂流瓶按钮点击事件
+        $('#sendBottleBtn').click(function () {
+            $('#sendBottleModal').modal('show');
+        });
+
+        // 接收漂流瓶按钮点击事件
+        $('#receiveBottleBtn').click(function () {
+            $('#receiveBottleModal').modal('show');
+        });
+
+        // 发送漂流瓶提交事件
+        $('#sendBottleSubmit').click(function () {
+            const message = $('#bottleMessage').val().trim();
+            const isPersistent = $('#persistentCheck').is(':checked') ? '1' : '0';
+
+            if (!message) {
+                alert('请输入消息内容');
+                return;
+            }
+
+            if (message.length > 100) {
+                alert('消息不能超过100字');
+                return;
+            }
+
+            $.post('/send_bottle', {
+                message: message,
+                is_persistent: isPersistent
+            }, function (data) {
+                if (data.success) {
+                    alert(data.message);
+                    $('#bottleMessage').val('');
+                    $('#persistentCheck').prop('checked', false);
+                    $('#sendBottleModal').modal('hide');
+                } else {
+                    alert(data.message);
+                }
+            });
+        });
+
+        // 接收漂流瓶提交事件
+        $('#receiveBottleSubmit').click(function () {
+            $.get('/receive_bottle', function (data) {
+                if (data.success) {
+                    if (data.data) {
+                        // 保存当前漂流瓶数据
+                        currentBottleData = data.data;
+
+                        let content = `<div class="mb-3">
+                            <div class="alert alert-info">
+                                <strong><i class="fas fa-envelope"></i> 您收到的漂流瓶:</strong>
+                            </div>
+                            <p><strong>消息:</strong> ${data.data.message}</p>
+                            <p><strong>来自:</strong> ${data.data.sender}</p>
+                            <p><strong>时间:</strong> ${data.data.time}</p>`;
+
+                        if (data.data.sender_info) {
+                            content += `<div class="card bg-light">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-user"></i> 发送者信息</h6>
+                                    <p class="mb-1"><strong>电话:</strong> ${data.data.sender_info.phone}</p>
+                                    <p class="mb-1"><strong>国家:</strong> ${data.data.sender_info.place}</p>
+                                    <p class="mb-0"><strong>性别:</strong> ${data.data.sender_info.sex}</p>
+                                </div>
+                            </div>`;
+                        }
+
+                        if (data.data.is_persistent == 1) {
+                            content += `<div class="alert alert-warning mt-2">[此漂流瓶已被发送者设置为永久保存]</div>`;
+                        }
+
+                        content += `</div>`;
+                        $('#bottleContent').html(content);
+
+                        // 显示回复按钮
+                        $('#replyBottleBtn').show();
+                    } else {
+                        $('#bottleContent').html(`<div class="text-center">
+                            <i class="fas fa-exclamation-circle fa-2x text-warning mb-3"></i>
+                            <p class="text-muted">${data.message}</p>
+                        </div>`);
+                        // 隐藏回复按钮
+                        $('#replyBottleBtn').hide();
+                    }
+                } else {
+                    alert(data.message);
+                }
+            });
+        });
+
+        // 回复漂流瓶按钮点击事件
+        $('#replyBottleBtn').click(function () {
+            if (!currentBottleData) return;
+
+            // 调用后端API回复漂流瓶
+            $.ajax({
+                url: '/reply_bottle',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    sender_name: currentBottleData.sender,
+                    time: currentBottleData.time,
+                    is_persistent: currentBottleData.is_persistent
+                }),
+                success: function (data) {
+                    if (data.success) {
+                        // 关闭模态框
+                        $('#receiveBottleModal').modal('hide');
+                        // 打开与发送者的聊天
+                        openChat(currentBottleData.sender);
+                    } else {
+                        alert(data.message);
+                    }
+                },
+                error: function () {
+                    alert('回复漂流瓶时发生错误');
+                }
+            });
+        });
+
+        // 发送消息按钮点击事件
+        $('#sendMessageBtn').click(function () {
+            sendMessage();
+        });
+
+        // 发送图片按钮点击事件
+        $('#sendImageBtn').click(function () {
+            if (currentGroupId) {
+                // 群组聊天不支持发送图片（可以扩展实现）
+                alert('群组聊天暂不支持发送图片');
+                return;
+            }
+
+            if (!currentChatUser) return;
+            $('#imageReceiver').val(currentChatUser);
+            $('#imageFile').val('');
+            $('#imagePreviewContainer').hide();
+            $('#sendImageModal').modal('show');
+        });
+
+        // 发送文件按钮点击事件
+        $('#sendFileBtn').click(function () {
+            if (currentGroupId) {
+                // 群组聊天不支持发送文件（可以扩展实现）
+                alert('群组聊天暂不支持发送文件');
+                return;
+            }
+
+            if (!currentChatUser) return;
+            sendFile(currentChatUser);
+        });
+
+        // 图片文件选择事件
+        $('#imageFile').change(function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    $('#imagePreview').attr('src', e.target.result);
+                    $('#imagePreviewContainer').show();
+                }
+                reader.readAsDataURL(file);
+            } else {
+                $('#imagePreviewContainer').hide();
+            }
+        });
+
+        // 发送图片提交事件
+        $('#sendImageSubmit').click(function () {
+            const formData = new FormData($('#sendImageForm')[0]);
+
+            $.ajax({
+                url: '/send_private_image',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (data) {
+                    if (data.success) {
+                        $('#sendImageModal').modal('hide');
+                        loadChatMessages(); // 重新加载消息
+                    } else {
+                        alert(data.message);
+                    }
+                },
+                error: function () {
+                    alert('发送图片时发生错误');
+                }
+            });
+        });
+
+        // 文件选择事件
+        $('#fileInput').change(function () {
+            const file = this.files[0];
+            if (file) {
+                $('#fileName').text(file.name);
+                $('#fileSize').text(formatFileSize(file.size));
+                $('#fileType').text(file.type || '未知类型');
+                $('#filePreviewContainer').show();
+            } else {
+                $('#filePreviewContainer').hide();
+            }
+        });
+
+        // 发送文件提交事件
+        $('#sendFileSubmit').click(function () {
+            const formData = new FormData($('#sendFileForm')[0]);
+
+            $.ajax({
+                url: '/send_file',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (data) {
+                    if (data.success) {
+                        $('#sendFileModal').modal('hide');
+                        loadChatMessages(); // 重新加载消息
+                    } else {
+                        alert(data.message);
+                    }
+                },
+                error: function () {
+                    alert('发送文件时发生错误');
+                }
+            });
+        });
+
+        // Voice Recording Logic
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        $('#recordVoiceBtn').click(function () {
+            if (!isRecording) {
+                // Start recording
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        mediaRecorder = new MediaRecorder(stream);
+                        mediaRecorder.start();
+                        isRecording = true;
+                        audioChunks = [];
+
+                        $('#recordVoiceBtn').html('<i class="fas fa-stop"></i> 停止').removeClass('btn-warning').addClass('btn-danger');
+
+                        mediaRecorder.addEventListener("dataavailable", event => {
+                            audioChunks.push(event.data);
+                        });
+
+                        mediaRecorder.addEventListener("stop", () => {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            sendVoiceMessage(audioBlob);
+                        });
+                    })
+                    .catch(err => {
+                        console.error("Error accessing microphone:", err);
+                        alert("无法访问麦克风");
+                    });
+            } else {
+                // Stop recording
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    $('#recordVoiceBtn').html('<i class="fas fa-microphone"></i> 语音').removeClass('btn-danger').addClass('btn-warning');
+                }
+            }
+        });
+
+        function sendVoiceMessage(audioBlob) {
+            if (!currentChatUser) return;
+
+            const formData = new FormData();
+            formData.append("audio", audioBlob, "voice.webm");
+            formData.append("receiver", currentChatUser);
+
+            $.ajax({
+                url: '/send_voice_message',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (data) {
+                    if (data.success) {
+                        loadChatMessages();
+                    } else {
+                        alert(data.message);
+                    }
+                },
+                error: function () {
+                    alert('发送语音失败');
+                }
+            });
+        }
+
+        // 消息输入框回车事件
+        $('#messageInput').keypress(function (e) {
+            if (e.which == 13) {
+                sendMessage();
+            } else {
+                // Emit typing event
+                if (currentChatUser) {
+                    socket.emit('typing', { receiver: currentChatUser });
+                }
+            }
+        });
+
+        // 字符计数
+        $('#bottleMessage').on('input', function () {
+            const maxLength = 100;
+            const currentLength = $(this).val().length;
+            const remaining = maxLength - currentLength;
+            $('#charCount').text(remaining);
+        });
+
+        // 搜索用户按钮点击事件
+        $('#searchBtn').click(function () {
+            searchUsers();
+        });
+
+        // 搜索输入框回车事件
+        $('#searchInput').keypress(function (e) {
+            if (e.which == 13) {
+                searchUsers();
+            }
+        });
+
+        // 创建群组按钮点击事件
+        $('#createGroupBtn').click(function () {
+            $('#createGroupModal').modal('show');
+        });
+
+        // 创建群组提交事件
+        $('#createGroupSubmit').click(function () {
+            const groupName = $('#groupName').val().trim();
+            const groupDescription = $('#groupDescription').val().trim();
+            const groupAvatar = $('#groupAvatar')[0].files[0];
+
+            if (!groupName) {
+                alert('请输入群组名称');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('group_name', groupName);
+            formData.append('description', groupDescription);
+            if (groupAvatar) {
+                formData.append('avatar', groupAvatar);
+            }
+
+            $.ajax({
+                url: '/create_group',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (data) {
+                    if (data.success) {
+                        alert(data.message);
+                        $('#groupName').val('');
+                        $('#groupDescription').val('');
+                        $('#groupAvatar').val('');
+                        $('#createGroupModal').modal('hide');
+                        loadGroupList(); // 重新加载群组列表
+                    } else {
+                        alert(data.message);
+                    }
+                },
+                error: function () {
+                    alert('创建群组失败');
+                }
+            });
+        });
+
+        // 添加成员按钮点击事件
+        $('#addMemberBtn').click(function () {
+            addGroupMember();
+        });
+
+        // 添加成员输入框回车事件
+        $('#addMemberInput').keypress(function (e) {
+            if (e.which == 13) {
+                addGroupMember();
+            }
+        });
+    });
+
+    // 加载聊天用户列表
+    function loadChatUsers() {
+        $.get('/chat_users', function (data) {
+            if (data.success) {
+                let html = '';
+                if (data.data.length > 0) {
+                    // 获取在线用户列表
+                    $.get('/get_online_users', function (onlineData) {
+                        if (onlineData.success) {
+                            const onlineUsers = onlineData.data;
+
+                            data.data.forEach(function (user) {
+                                const isOnline = onlineUsers.includes(user.name);
+                                const statusIcon = isOnline ?
+                                    '<i class="fas fa-circle text-success me-2" title="在线"></i>' :
+                                    '<i class="fas fa-circle text-secondary me-2" title="离线"></i>';
+
+                                html += `<li class="list-group-item d-flex justify-content-between align-items-center" 
+                                          style="cursor: pointer;" onclick="openChat('${user.name}')">
+                                            <div>
+                                                ${statusIcon}
+                                                <span>${user.name}</span>
+                                            </div>
+                                            ${user.has_unread ? '<span class="badge bg-danger rounded-pill">新消息</span>' : ''}
+                                        </li>`;
+                            });
+
+                            $('#chatUserList').html(html);
+                        }
+                    });
+                } else {
+                    html = `<li class="list-group-item text-center text-muted">
+                        <i class="fas fa-comment-slash"></i> 暂无聊天记录
+                    </li>`;
+                    $('#chatUserList').html(html);
+                }
+            }
+        });
+    }
+
+    // 打开聊天窗口
+    function openChat(username) {
+        currentChatUser = username;
+        currentGroupId = null; // 清除群组ID
+        previousMessageCount = 0;  // 重置消息计数
+        $('#chatContainer').html('<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"></div></div>');
+        $('#messageInput').prop('disabled', false);
+        $('#sendMessageBtn').prop('disabled', false);
+        $('#sendImageBtn').prop('disabled', false);
+        $('#sendFileBtn').prop('disabled', false);
+        $('#recordVoiceBtn').prop('disabled', false);
+
+        // 获取用户在线状态并更新聊天窗口标题
+        $.get(`/get_user_status/${username}`, function (data) {
+            if (data.success) {
+                const statusInfo = data.data;
+                const statusIcon = statusInfo.is_online ?
+                    '<i class="fas fa-circle text-success"></i>' :
+                    '<i class="fas fa-circle text-secondary"></i>';
+                const statusText = statusInfo.is_online ? '在线' : '离线';
+                const lastSeen = statusInfo.last_seen ? `，最后上线: ${statusInfo.last_seen}` : '';
+
+                // 更新聊天窗口标题（使用更具体的选择器，选择第二个匹配的元素）
+                $('.card-header.bg-info.text-white h5').eq(1).html(
+                    `<i class="fas fa-comment-dots"></i> 私聊：${username} 
+                     <small class="ms-2">${statusIcon} ${statusText}${lastSeen}</small>`
+                );
+            } else {
+                // 更新聊天窗口标题（使用更具体的选择器，选择第二个匹配的元素）
+                $('.card-header.bg-info.text-white h5').eq(1).html(`<i class="fas fa-comment-dots"></i> 私聊：${username}`);
+            }
+        });
+
+        // 加载聊天记录
+        loadChatMessages();
+
+        // 设置定时刷新聊天记录
+        if (chatRefreshInterval) {
+            clearInterval(chatRefreshInterval);
+        }
+        // SocketIO handles updates now, no polling needed
+    }
+
+    // 加载聊天记录
+    function loadChatMessages() {
+        if (!currentChatUser) return;
+
+        $.get(`/chat_messages/${currentChatUser}`, function (data) {
+            if (data.success) {
+                // 只有在消息数量变化时才更新界面
+                if (data.data.length !== previousMessageCount) {
+                    displayMessages(data.data, true);  // 有新消息时滚动到底部
+                    previousMessageCount = data.data.length;
+                } else {
+                    displayMessages(data.data, false); // 无新消息时保持当前位置
+                }
+            }
+        });
+    }
+
+    // 显示消息
+    function displayMessages(messages, scrollToBottom) {
+        let html = '';
+        if (messages.length > 0) {
+            messages.forEach(function (msg) {
+                const isSent = msg.sender === '{{ user_info.name }}';
+                const messageClass = isSent ? 'sent-message' : 'received-message';
+                const alignment = isSent ? 'text-end' : 'text-start';
+
+                // 检查消息是否被撤回
+                if (msg.is_withdrawn) {
+                    html += `<div class="mb-3 text-center">
+                        <div class="text-muted small">
+                            <i class="fas fa-info-circle"></i> 消息已被撤回
+                        </div>
+                    </div>`;
+                    return;
+                }
+
+                html += `<div class="mb-3 ${alignment} message-container" data-message-id="${msg.id}" data-message-type="${msg.type}">
+                    <div class="message-bubble ${messageClass}">`;
+
+                if (msg.type === 'text') {
+                    html += `<div class="message-content">${msg.content}</div>`;
+                } else if (msg.type === 'image') {
+                    html += `<img src="${msg.content}" class="img-fluid rounded" style="max-width: 300px;" alt="图片消息">`;
+                } else if (msg.type === 'voice') {
+                    let audioSrc = msg.file_path ? '/static/' + msg.file_path : '/static/shared_files/' + msg.content;
+                    html += `<audio controls src="${audioSrc}" style="max-width: 250px;"></audio>`;
+                } else if (msg.type === 'file') {
+                    html += `<div class="d-flex align-items-center file-message" data-file-id="${msg.id}">
+                        <i class="fas fa-file me-2 text-primary"></i>
+                        <div>
+                            <div><a href="/download_file/${msg.id}" class="file-download-link text-decoration-none text-primary fw-bold" download="${msg.content}">${msg.content}</a></div>
+                            <small class="text-muted">${msg.file_size ? formatFileSize(msg.file_size) : ''}</small>
+                        </div>
+                    </div>`;
+                }
+
+                html += `<div class="small mt-1 message-meta">
+                            <span>${msg.time}</span>
+                            ${isSent ? `<span class="ms-2">${msg.is_read ? '<i class="fas fa-check-double text-success"></i>' : '<i class="fas fa-check text-muted"></i>'}</span>` : ''}
+                            ${isSent ? `<span class="ms-2 withdraw-btn" style="cursor: pointer;" title="撤回消息"><i class="fas fa-undo text-muted"></i></span>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            });
+        } else {
+            html = `<div class="text-center text-muted mt-3">
+                <i class="fas fa-comment-slash"></i> 暂无消息
+            </div>`;
+        }
+
+        $('#chatContainer').html(html);
+
+        // 绑定撤回按钮事件
+        $('.withdraw-btn').click(function () {
+            const messageContainer = $(this).closest('.message-container');
+            const messageId = messageContainer.data('message-id');
+            const messageType = messageContainer.data('message-type');
+
+            if (confirm('确定要撤回这条消息吗？')) {
+                withdrawMessage(messageId, messageType);
+            }
+        });
+
+        // 绑定文件下载事件
+        $('.file-download-link').click(function (e) {
+            e.preventDefault();
+            const fileMessage = $(this).closest('.file-message');
+            const fileId = fileMessage.data('file-id');
+            const fileName = $(this).attr('download');
+
+            if (fileId) {
+                // 直接使用window.location.href下载文件，这样更可靠
+                const downloadUrl = `/download_file/${fileId}`;
+
+                // 创建一个临时链接来触发下载
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = fileName;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        });
+
+        // 只有在有新消息时才滚动到底部
+        if (scrollToBottom) {
+            $('#chatContainer').scrollTop($('#chatContainer')[0].scrollHeight);
+        }
+    }
+
+    // 搜索用户
+    function searchUsers() {
+        const searchTerm = $('#searchInput').val().trim();
+
+        if (!searchTerm) {
+            alert('请输入搜索关键词');
+            return;
+        }
+
+        $.post('/search_users', {
+            search_term: searchTerm
+        }, function (data) {
+            if (data.success) {
+                displaySearchResults(data.data);
+            } else {
+                $('#searchResults').html(`<div class="alert alert-warning">${data.message}</div>`);
+            }
+        });
+    }
+
+    // 显示搜索结果
+    function displaySearchResults(users) {
+        let html = '';
+
+        if (users.length > 0) {
+            html += '<div class="list-group">';
+            users.forEach(function (user) {
+                html += `<div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${user.name}</h6>
+                            <small class="text-muted">
+                                <i class="fas fa-phone"></i> ${user.phone} | 
+                                <i class="fas fa-globe"></i> ${user.place} | 
+                                <i class="fas fa-venus-mars"></i> ${user.sex}
+                            </small>
+                        </div>
+                        <button class="btn btn-sm btn-primary add-friend-btn" data-username="${user.name}">
+                            <i class="fas fa-user-plus"></i> 添加
+                        </button>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+        } else {
+            html = '<div class="alert alert-info">未找到匹配的用户</div>';
+        }
+
+        $('#searchResults').html(html);
+
+        // 绑定添加好友按钮事件
+        $('.add-friend-btn').click(function () {
+            const friendName = $(this).data('username');
+            addFriend(friendName);
+        });
+    }
+
+    // 添加好友
+    function addFriend(friendName) {
+        $.post('/add_friend', {
+            friend_name: friendName
+        }, function (data) {
+            if (data.success) {
+                alert(data.message);
+                // 清空搜索结果
+                $('#searchResults').html('');
+                $('#searchInput').val('');
+                // 重新加载聊天用户列表
+                loadChatUsers();
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+
+    // 加载群组列表
+    function loadGroupList() {
+        $.get('/user_groups', function (data) {
+            if (data.success) {
+                let html = '';
+                if (data.data.length > 0) {
+                    data.data.forEach(function (group) {
+                        let avatarHtml = '<i class="fas fa-users me-2"></i>';
+                        if (group.avatar_path) {
+                            avatarHtml = `<img src="/static/${group.avatar_path}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">`;
+                        }
+
+                        html += `<li class="list-group-item d-flex justify-content-between align-items-center" 
+                                  style="cursor: pointer;" onclick="openGroupChat(${group.id}, '${group.name}')">
+                                    <div class="d-flex align-items-center">
+                                        ${avatarHtml}
+                                        <span>${group.name}</span>
+                                    </div>
+                                </li>`;
+                    });
+                } else {
+                    html = `<li class="list-group-item text-center text-muted">
+                        <i class="fas fa-users-slash"></i> 暂无群组
+                    </li>`;
+                }
+                $('#groupList').html(html);
+            }
+        });
+    }
+
+    // 打开群组聊天
+    function openGroupChat(groupId, groupName) {
+        if (currentGroupId) {
+            socket.emit('leave_group', { group_id: currentGroupId });
+        }
+        currentChatUser = null; // 清除私聊用户
+        currentGroupId = groupId; // 设置当前群组ID
+        previousMessageCount = 0;  // 重置消息计数
+        $('#chatContainer').html('<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"></div></div>');
+        $('#messageInput').prop('disabled', false);
+        $('#sendMessageBtn').prop('disabled', false);
+        $('#sendImageBtn').prop('disabled', false);
+        $('#sendFileBtn').prop('disabled', false);
+
+        // 获取群公告和用户角色，并更新聊天窗口标题
+        $.when(
+            $.get(`/get_group_announcement/${groupId}`),
+            $.get(`/get_user_group_role/${groupId}`)
+        ).done(function (announcementData, roleData) {
+            const announcement = announcementData[0].success ? announcementData[0].announcement : '暂无公告';
+            const userRole = roleData[0].success ? roleData[0].role : null;
+
+            let headerHtml = `<i class="fas fa-comment-dots"></i> 群组聊天: ${groupName} 
+                              <button class="btn btn-sm btn-info float-end ms-2" onclick="showGroupMembers(${groupId})"><i class="fas fa-users"></i> 成员</button>`;
+
+            if (userRole === 'creator' || userRole === 'admin') {
+                headerHtml += `<button class="btn btn-sm btn-warning float-end" onclick="openSetAnnouncementModal(${groupId}, '${announcement.replace(/\'/g, '&apos;')}')"><i class="fas fa-bullhorn"></i> 设置公告</button>`;
+            }
+
+            $('.card-header.bg-info.text-white h5').eq(1).html(headerHtml);
+
+            // 显示群公告
+            $('#chatContainer').prepend(`<div class="alert alert-warning alert-dismissible fade show m-3" role="alert" id="groupAnnouncementDisplay">
+                                            <strong>群公告:</strong> <span id="currentAnnouncementText">${announcement}</span>
+                                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                        </div>`);
+        }).fail(function () {
+            $('.card-header.bg-info.text-white h5').eq(1).html(`<i class="fas fa-comment-dots"></i> 群组聊天: ${groupName} <button class="btn btn-sm btn-info float-end" onclick="showGroupMembers(${groupId})"><i class="fas fa-users"></i> 成员</button>`);
+            $('#chatContainer').prepend(`<div class="alert alert-warning m-3" role="alert">无法加载群公告或您的群组角色。</div>`);
+        });
+
+        // 加载群组消息
+        loadGroupMessages();
+
+        // 设置定时刷新群组消息
+        if (chatRefreshInterval) {
+            clearInterval(chatRefreshInterval);
+        }
+        // Join group room
+        socket.emit('join_group', { group_id: groupId });
+    }
+
+    // 加载群组消息
+    function loadGroupMessages() {
+        if (!currentGroupId) return;
+
+        $.get(`/group_messages/${currentGroupId}`, function (data) {
+            if (data.success) {
+                // 只有在消息数量变化时才更新界面
+                if (data.data.length !== previousMessageCount) {
+                    displayGroupMessages(data.data, true);  // 有新消息时滚动到底部
+                    previousMessageCount = data.data.length;
+                } else {
+                    displayGroupMessages(data.data, false); // 无新消息时保持当前位置
+                }
+            }
+        });
+    }
+
+    // 显示群组消息
+    function displayGroupMessages(messages, scrollToBottom) {
+        let html = '';
+        if (messages.length > 0) {
+            messages.forEach(function (msg) {
+                const isSent = msg.sender_name === '{{ user_info.name }}';
+                const messageClass = isSent ? 'sent-message' : 'received-message';
+                const alignment = isSent ? 'text-end' : 'text-start';
+
+                html += `<div class="mb-3 ${alignment}">
+                    <div class="message-bubble ${messageClass}">`;
+
+                if (isSent) {
+                    html += `<div><strong>我:</strong> ${msg.message}</div>`;
+                } else {
+                    html += `<div><strong>${msg.sender_name}:</strong> ${msg.message}</div>`;
+                }
+
+                html += `<div class="small mt-1">
+                            <span>${msg.send_time}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        } else {
+            html = `<div class="text-center text-muted mt-3">
+                <i class="fas fa-comment-slash"></i> 暂无消息
+            </div>`;
+        }
+
+        $('#chatContainer').html(html);
+
+        // 只有在有新消息时才滚动到底部
+        if (scrollToBottom) {
+            $('#chatContainer').scrollTop($('#chatContainer')[0].scrollHeight);
+        }
+    }
+
+    // 显示群组成员
+    function showGroupMembers(groupId) {
+        $('#currentGroupId').val(groupId);
+        $('#addMemberInput').val('');
+        $('#groupMembersList').html('<div class="text-center"><div class="spinner-border" role="status"></div></div>');
+        $('#groupMembersModal').modal('show');
+
+        $.get(`/group_members/${groupId}`, function (data) {
+            if (data.success) {
+                // Get group info for invite link
+                $.get(`/user_groups`, function (groupData) {
+                    if (groupData.success) {
+                        const group = groupData.data.find(g => g.id == groupId);
+                        if (group && group.invite_token) {
+                            const inviteLink = `${window.location.origin}/join_group/${group.invite_token}`;
+                            $('#inviteLinkContainer').html(`
+                                <div class="input-group mb-3">
+                                    <span class="input-group-text">邀请链接</span>
+                                    <input type="text" class="form-control" value="${inviteLink}" readonly id="inviteLinkInput">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyInviteLink()">复制</button>
+                                </div>
+                            `);
+                        }
+                    }
+                });
+                displayGroupMembers(data.data);
+            } else {
+                $('#groupMembersList').html(`<div class="alert alert-warning">${data.message}</div>`);
+            }
+        });
+    }
+
+    // 显示群组成员列表
+    function displayGroupMembers(members) {
+        const groupId = $('#currentGroupId').val();
+        $.get(`/get_user_group_role/${groupId}`, function (roleData) {
+            const currentUserRole = roleData.success ? roleData.role : null;
+            let html = '<div class="list-group">';
+            members.forEach(function (member) {
+                const roleBadge = member.role === 'admin' || member.role === 'creator' ?
+                    `<span class="badge bg-primary ms-2">${member.role === 'creator' ? '创建者' : '管理员'}</span>` : '';
+
+                html += `<div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${member.user_name}</strong>
+                        ${roleBadge}
+                    </div>`;
+
+                // 如果当前用户是群主或管理员，并且不是目标成员自己，也不是群主
+                if ((currentUserRole === 'creator' || currentUserRole === 'admin') && member.user_name !== '{{ user_info.name }}' && member.role !== 'creator') {
+                    html += `<div>`;
+                    if (member.role === 'member') {
+                        html += `<button class="btn btn-sm btn-success me-2 promote-btn" data-username="${member.user_name}" data-groupid="${groupId}">提升为管理员</button>`;
+                    } else if (member.role === 'admin') {
+                        // 只有群主可以降级管理员
+                        if (currentUserRole === 'creator') {
+                            html += `<button class="btn btn-sm btn-warning me-2 demote-btn" data-username="${member.user_name}" data-groupid="${groupId}">降级为成员</button>`;
+                        }
+                    }
+                    html += `<button class="btn btn-sm btn-danger kick-btn" data-username="${member.user_name}" data-groupid="${groupId}">踢出</button>`;
+                    html += `</div>`;
+                }
+                html += `</div>`;
+            });
+            html += '</div>';
+
+            $('#groupMembersList').html(html);
+
+            // 绑定事件
+            $('.promote-btn').click(function () {
+                const userName = $(this).data('username');
+                const groupId = $(this).data('groupid');
+                promoteMember(groupId, userName);
+            });
+
+            $('.demote-btn').click(function () {
+                const userName = $(this).data('username');
+                const groupId = $(this).data('groupid');
+                demoteMember(groupId, userName);
+            });
+
+            $('.kick-btn').click(function () {
+                const userName = $(this).data('username');
+                const groupId = $(this).data('groupid');
+                kickMember(groupId, userName);
+            });
+        });
+    }
+
+    // 提升成员为管理员
+    function promoteMember(groupId, userName) {
+        if (confirm(`确定要将 ${userName} 提升为管理员吗？`)) {
+            $.post('/promote_group_member', {
+                group_id: groupId,
+                user_name: userName
+            }, function (data) {
+                if (data.success) {
+                    alert(data.message);
+                    showGroupMembers(groupId); // 刷新成员列表
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+    }
+
+    // 降级管理员为成员
+    function demoteMember(groupId, userName) {
+        if (confirm(`确定要将管理员 ${userName} 降级为普通成员吗？`)) {
+            $.post('/demote_group_member', {
+                group_id: groupId,
+                user_name: userName
+            }, function (data) {
+                if (data.success) {
+                    alert(data.message);
+                    showGroupMembers(groupId); // 刷新成员列表
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+    }
+
+    // 踢出成员
+    function kickMember(groupId, userName) {
+        if (confirm(`确定要将 ${userName} 移出群组吗？`)) {
+            $.post('/kick_group_member', {
+                group_id: groupId,
+                user_name: userName
+            }, function (data) {
+                if (data.success) {
+                    alert(data.message);
+                    showGroupMembers(groupId); // 刷新成员列表
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+    }
+
+    // 打开设置群公告模态框
+    function openSetAnnouncementModal(groupId, currentAnnouncement) {
+        $('#announcementGroupId').val(groupId);
+        $('#announcementText').val(currentAnnouncement);
+        $('#setAnnouncementModal').modal('show');
+    }
+
+    // 保存群公告
+    $('#saveAnnouncementBtn').click(function () {
+        const groupId = $('#announcementGroupId').val();
+        const announcementText = $('#announcementText').val().trim();
+
+        $.post('/update_announcement', {
+            group_id: groupId,
+            announcement_text: announcementText
+        }, function (data) {
+            if (data.success) {
+                alert(data.message);
+                $('#setAnnouncementModal').modal('hide');
+                // 更新显示的公告
+                $('#currentAnnouncementText').text(announcementText);
+            } else {
+                alert(data.message);
+            }
+        });
+    });
+
+    // 添加群组成员
+    function addGroupMember() {
+        const groupId = $('#currentGroupId').val();
+        const userName = $('#addMemberInput').val().trim();
+
+        if (!groupId || !userName) {
+            alert('请输入用户名');
+            return;
+        }
+
+        $.post('/add_group_member', {
+            group_id: groupId,
+            user_name: userName
+        }, function (data) {
+            if (data.success) {
+                alert(data.message);
+                $('#addMemberInput').val('');
+                // 重新加载成员列表
+                showGroupMembers(groupId);
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+
+    // 发送消息（修改以支持群组）
+    function sendMessage() {
+        const message = $('#messageInput').val().trim();
+        if (!message) return;
+
+        if (currentGroupId) {
+            // 发送群组消息
+            $.post('/send_group_message', {
+                group_id: currentGroupId,
+                message: message
+            }, function (data) {
+                if (data.success) {
+                    $('#messageInput').val('');
+                    loadGroupMessages(); // 重新加载消息
+                } else {
+                    alert(data.message);
+                }
+            });
+        } else if (currentChatUser) {
+            // 发送私聊消息
+            $.post('/send_private_message', {
+                receiver: currentChatUser,
+                message: message
+            }, function (data) {
+                if (data.success) {
+                    $('#messageInput').val('');
+                    loadChatMessages(); // 重新加载消息
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+    }
+
+    // 撤回消息
+    function withdrawMessage(messageId, messageType) {
+        $.post('/withdraw_message', {
+            message_id: messageId,
+            message_type: messageType
+        }, function (data) {
+            if (data.success) {
+                loadChatMessages(); // 重新加载消息
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 发送文件
+    function sendFile(receiver) {
+        $('#fileReceiver').val(receiver);
+        $('#fileInput').val('');
+        $('#filePreviewContainer').hide();
+        $('#sendFileModal').modal('show');
+    }
+
+    // 添加全局变量
+    let currentGroupId = null;
+    // 复制邀请链接
+    function copyInviteLink() {
+        const copyText = document.getElementById("inviteLinkInput");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); /* For mobile devices */
+        document.execCommand("copy");
+        alert("邀请链接已复制到剪贴板");
+    }
+</script>
+{% endblock %}
