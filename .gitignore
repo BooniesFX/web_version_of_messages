@@ -1,4 +1,58 @@
 .DS_Store
-.venv
+# macOS
+.AppleDouble
+.LSOverride
+Icon?
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg-info/
+*.egg
+*.log
+*.sqlite3
 *.db
 .env
+.venv/
+venv/
+env/
+ENV/
+build/
+dist/
+*.bak
+*.swp
+*.swo
+*.tmp
+*.old
+*.orig
+
+# VSCode
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Test & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+nosetests.xml
+test-results/
+
+# Node/npm/yarn (if any frontend)
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Others
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.stackdump
+
