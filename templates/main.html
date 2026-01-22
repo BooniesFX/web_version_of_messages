@@ -546,17 +546,17 @@
                             <div class="alert alert-info">
                                 <strong><i class="fas fa-envelope"></i> 您收到的漂流瓶:</strong>
                             </div>
-                            <p><strong>消息:</strong> ${data.data.message}</p>
-                            <p><strong>来自:</strong> ${data.data.sender}</p>
-                            <p><strong>时间:</strong> ${data.data.time}</p>`;
+                            <p><strong>消息:</strong> ${escapeHtml(data.data.message)}</p>
+                            <p><strong>来自:</strong> ${escapeHtml(data.data.sender)}</p>
+                            <p><strong>时间:</strong> ${escapeHtml(data.data.time)}</p>`;
 
                         if (data.data.sender_info) {
                             content += `<div class="card bg-light">
                                 <div class="card-body">
                                     <h6><i class="fas fa-user"></i> 发送者信息</h6>
-                                    <p class="mb-1"><strong>电话:</strong> ${data.data.sender_info.phone}</p>
-                                    <p class="mb-1"><strong>国家:</strong> ${data.data.sender_info.place}</p>
-                                    <p class="mb-0"><strong>性别:</strong> ${data.data.sender_info.sex}</p>
+                                    <p class="mb-1"><strong>电话:</strong> ${escapeHtml(data.data.sender_info.phone)}</p>
+                                    <p class="mb-1"><strong>国家:</strong> ${escapeHtml(data.data.sender_info.place)}</p>
+                                    <p class="mb-0"><strong>性别:</strong> ${escapeHtml(data.data.sender_info.sex)}</p>
                                 </div>
                             </div>`;
                         }
@@ -898,10 +898,10 @@
                                     '<i class="fas fa-circle text-secondary me-2" title="离线"></i>';
 
                                 html += `<li class="list-group-item d-flex justify-content-between align-items-center" 
-                                          style="cursor: pointer;" onclick="openChat('${user.name}')">
+                                          style="cursor: pointer;" onclick="openChat('${escapeHtml(user.name)}')">
                                             <div>
                                                 ${statusIcon}
-                                                <span>${user.name}</span>
+                                                <span>${escapeHtml(user.name)}</span>
                                             </div>
                                             ${user.has_unread ? '<span class="badge bg-danger rounded-pill">新消息</span>' : ''}
                                         </li>`;
@@ -944,12 +944,12 @@
 
                 // 更新聊天窗口标题（使用更具体的选择器，选择第二个匹配的元素）
                 $('.card-header.bg-info.text-white h5').eq(1).html(
-                    `<i class="fas fa-comment-dots"></i> 私聊：${username} 
+                    `<i class="fas fa-comment-dots"></i> 私聊：${escapeHtml(username)} 
                      <small class="ms-2">${statusIcon} ${statusText}${lastSeen}</small>`
                 );
             } else {
                 // 更新聊天窗口标题（使用更具体的选择器，选择第二个匹配的元素）
-                $('.card-header.bg-info.text-white h5').eq(1).html(`<i class="fas fa-comment-dots"></i> 私聊：${username}`);
+                $('.card-header.bg-info.text-white h5').eq(1).html(`<i class="fas fa-comment-dots"></i> 私聊：${escapeHtml(username)}`);
             }
         });
 
@@ -1003,17 +1003,17 @@
                     <div class="message-bubble ${messageClass}">`;
 
                 if (msg.type === 'text') {
-                    html += `<div class="message-content">${msg.content}</div>`;
+                    html += `<div class="message-content">${escapeHtml(msg.content)}</div>`;
                 } else if (msg.type === 'image') {
                     html += `<img src="${msg.content}" class="img-fluid rounded" style="max-width: 300px;" alt="图片消息">`;
                 } else if (msg.type === 'voice') {
                     let audioSrc = msg.file_path ? '/static/' + msg.file_path : '/static/shared_files/' + msg.content;
                     html += `<audio controls src="${audioSrc}" style="max-width: 250px;"></audio>`;
                 } else if (msg.type === 'file') {
-                    html += `<div class="d-flex align-items-center file-message" data-file-id="${msg.id}">
+                    html += `<div class="d-flex align-items-center file-message" data-file-id="${msg.id}" data-file-token="${msg.token || ''}">
                         <i class="fas fa-file me-2 text-primary"></i>
                         <div>
-                            <div><a href="/download_file/${msg.id}" class="file-download-link text-decoration-none text-primary fw-bold" download="${msg.content}">${msg.content}</a></div>
+                            <div><a href="/download_file/${msg.token || msg.id}" class="file-download-link text-decoration-none text-primary fw-bold">${escapeHtml(msg.content)}</a></div>
                             <small class="text-muted">${msg.file_size ? formatFileSize(msg.file_size) : ''}</small>
                         </div>
                     </div>`;
@@ -1046,27 +1046,7 @@
             }
         });
 
-        // 绑定文件下载事件
-        $('.file-download-link').click(function (e) {
-            e.preventDefault();
-            const fileMessage = $(this).closest('.file-message');
-            const fileId = fileMessage.data('file-id');
-            const fileName = $(this).attr('download');
-
-            if (fileId) {
-                // 直接使用window.location.href下载文件，这样更可靠
-                const downloadUrl = `/download_file/${fileId}`;
-
-                // 创建一个临时链接来触发下载
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = fileName;
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-        });
+        // 文件访问现在由浏览器原生处理以支持预览
 
         // 只有在有新消息时才滚动到底部
         if (scrollToBottom) {
@@ -1104,14 +1084,14 @@
                 html += `<div class="list-group-item">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="mb-1">${user.name}</h6>
+                            <h6 class="mb-1">${escapeHtml(user.name)}</h6>
                             <small class="text-muted">
-                                <i class="fas fa-phone"></i> ${user.phone} | 
-                                <i class="fas fa-globe"></i> ${user.place} | 
-                                <i class="fas fa-venus-mars"></i> ${user.sex}
+                                <i class="fas fa-phone"></i> ${escapeHtml(user.phone)} | 
+                                <i class="fas fa-globe"></i> ${escapeHtml(user.place)} | 
+                                <i class="fas fa-venus-mars"></i> ${escapeHtml(user.sex)}
                             </small>
                         </div>
-                        <button class="btn btn-sm btn-primary add-friend-btn" data-username="${user.name}">
+                        <button class="btn btn-sm btn-primary add-friend-btn" data-username="${escapeHtml(user.name)}">
                             <i class="fas fa-user-plus"></i> 添加
                         </button>
                     </div>
@@ -1162,10 +1142,10 @@
                         }
 
                         html += `<li class="list-group-item d-flex justify-content-between align-items-center" 
-                                  style="cursor: pointer;" onclick="openGroupChat(${group.id}, '${group.name}')">
+                                  style="cursor: pointer;" onclick="openGroupChat(${group.id}, '${escapeHtml(group.name)}')">
                                     <div class="d-flex align-items-center">
                                         ${avatarHtml}
-                                        <span>${group.name}</span>
+                                        <span>${escapeHtml(group.name)}</span>
                                     </div>
                                 </li>`;
                     });
@@ -1201,18 +1181,18 @@
             const announcement = announcementData[0].success ? announcementData[0].announcement : '暂无公告';
             const userRole = roleData[0].success ? roleData[0].role : null;
 
-            let headerHtml = `<i class="fas fa-comment-dots"></i> 群组聊天: ${groupName} 
+            let headerHtml = `<i class="fas fa-comment-dots"></i> 群组聊天: ${escapeHtml(groupName)} 
                               <button class="btn btn-sm btn-info float-end ms-2" onclick="showGroupMembers(${groupId})"><i class="fas fa-users"></i> 成员</button>`;
 
             if (userRole === 'creator' || userRole === 'admin') {
-                headerHtml += `<button class="btn btn-sm btn-warning float-end" onclick="openSetAnnouncementModal(${groupId}, '${announcement.replace(/\'/g, '&apos;')}')"><i class="fas fa-bullhorn"></i> 设置公告</button>`;
+                headerHtml += `<button class="btn btn-sm btn-warning float-end" onclick="openSetAnnouncementModal(${groupId}, '${escapeHtml(announcement).replace(/\'/g, '&apos;')}')"><i class="fas fa-bullhorn"></i> 设置公告</button>`;
             }
 
             $('.card-header.bg-info.text-white h5').eq(1).html(headerHtml);
 
             // 显示群公告
             $('#chatContainer').prepend(`<div class="alert alert-warning alert-dismissible fade show m-3" role="alert" id="groupAnnouncementDisplay">
-                                            <strong>群公告:</strong> <span id="currentAnnouncementText">${announcement}</span>
+                                            <strong>群公告:</strong> <span id="currentAnnouncementText">${escapeHtml(announcement)}</span>
                                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                         </div>`);
         }).fail(function () {
@@ -1261,9 +1241,9 @@
                     <div class="message-bubble ${messageClass}">`;
 
                 if (isSent) {
-                    html += `<div><strong>我:</strong> ${msg.message}</div>`;
+                    html += `<div><strong>我:</strong> ${escapeHtml(msg.message)}</div>`;
                 } else {
-                    html += `<div><strong>${msg.sender_name}:</strong> ${msg.message}</div>`;
+                    html += `<div><strong>${escapeHtml(msg.sender_name)}:</strong> ${escapeHtml(msg.message)}</div>`;
                 }
 
                 html += `<div class="small mt-1">

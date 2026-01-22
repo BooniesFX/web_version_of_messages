@@ -13,7 +13,7 @@
                     </h1>
                     <p class="text-white-50 mt-2">发现未知的友谊，连接世界的角落</p>
                 </div>
-                
+
                 <div class="card login-card floating-animation">
                     <div class="card-header login-header text-center">
                         <h3><i class="fas fa-sign-in-alt me-2"></i>欢迎回来</h3>
@@ -21,18 +21,21 @@
                     </div>
                     <div class="card-body login-body">
                         <form method="POST" id="loginForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <div class="mb-4">
                                 <label for="username" class="form-label">用户名</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                    <input type="text" class="form-control" id="username" name="username" placeholder="请输入用户名" required autocomplete="username">
+                                    <input type="text" class="form-control" id="username" name="username"
+                                        placeholder="请输入用户名" required autocomplete="username">
                                 </div>
                             </div>
                             <div class="mb-4">
                                 <label for="password" class="form-label">密码</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                                    <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required autocomplete="current-password">
+                                    <input type="password" class="form-control" id="password" name="password"
+                                        placeholder="请输入密码" required autocomplete="current-password">
                                     <button class="btn btn-outline-secondary toggle-password" type="button">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -54,7 +57,7 @@
                                 </a>
                             </div>
                         </form>
-                        
+
                         <div class="text-center mt-4">
                             <div class="divider d-flex align-items-center my-3">
                                 <span class="text-muted mx-3">或者</span>
@@ -73,7 +76,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="text-center mt-4">
                     <p class="text-white-50">
                         <small>© 2023 漂流瓶 - 连接陌生人的桥梁</small>
@@ -91,18 +94,19 @@
         background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
         background-attachment: fixed;
     }
-    
+
     .divider {
         position: relative;
     }
-    
-    .divider:before, .divider:after {
+
+    .divider:before,
+    .divider:after {
         content: "";
         flex: 1;
         height: 1px;
         background: #e0e0e0;
     }
-    
+
     .btn-icon {
         width: 45px;
         height: 45px;
@@ -114,11 +118,11 @@
         font-size: 1.2rem;
         transition: all 0.3s ease;
     }
-    
+
     .btn-icon:hover {
         transform: translateY(-3px);
     }
-    
+
     .toggle-password {
         border-top-right-radius: 12px;
         border-bottom-right-radius: 12px;
@@ -128,19 +132,19 @@
 
 {% block scripts %}
 <script>
-    $(document).ready(function() {
+    $(document).ready(function () {
         // 回车键登录功能
-        $('#password').keypress(function(e) {
+        $('#password').keypress(function (e) {
             if (e.which == 13) {
                 $('#loginForm').submit();
             }
         });
-        
+
         // 密码显示/隐藏功能
-        $('.toggle-password').click(function() {
+        $('.toggle-password').click(function () {
             const passwordInput = $('#password');
             const icon = $(this).find('i');
-            
+
             if (passwordInput.attr('type') === 'password') {
                 passwordInput.attr('type', 'text');
                 icon.removeClass('fa-eye').addClass('fa-eye-slash');
@@ -149,9 +153,9 @@
                 icon.removeClass('fa-eye-slash').addClass('fa-eye');
             }
         });
-        
+
         // 添加表单提交动画
-        $('#loginForm').on('submit', function() {
+        $('#loginForm').on('submit', function () {
             $('button[type="submit"]').html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>登录中...');
             $('button[type="submit"]').prop('disabled', true);
         });

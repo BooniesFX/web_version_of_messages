@@ -9,8 +9,8 @@
             <div class="card-body text-center">
                 <h2><i class="fas fa-user"></i> 欢迎, {{ user_info.name }}!</h2>
                 <p class="mb-0">
-                    <i class="fas fa-phone"></i> 电话: {{ user_info.phone }} | 
-                    <i class="fas fa-globe"></i> 国家: {{ user_info.place }} | 
+                    <i class="fas fa-phone"></i> 电话: {{ user_info.phone }} |
+                    <i class="fas fa-globe"></i> 国家: {{ user_info.place }} |
                     <i class="fas fa-venus-mars"></i> 性别: {{ user_info.sex }}
                 </p>
             </div>
@@ -28,7 +28,8 @@
             <div class="card-body">
                 <form id="postMomentForm" enctype="multipart/form-data">
                     <div class="mb-3">
-                        <textarea class="form-control" id="momentContent" name="content" rows="3" maxlength="200" placeholder="分享你的生活... (最多200字)"></textarea>
+                        <textarea class="form-control" id="momentContent" name="content" rows="3" maxlength="200"
+                            placeholder="分享你的生活... (最多200字)"></textarea>
                         <div class="form-text text-end">还可以输入 <span id="charCount">200</span> 字符</div>
                     </div>
                     <div class="mb-3">
@@ -46,7 +47,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 朋友圈列表 -->
     <div class="col-12">
         <div class="card">
@@ -84,98 +85,98 @@
 
 {% block scripts %}
 <script>
-$(document).ready(function() {
-    // 加载朋友圈
-    loadMoments();
-    
-    // 设置定时刷新
-    setInterval(loadMoments, 30000);
-    
-    // 字符计数
-    $('#momentContent').on('input', function() {
-        const maxLength = 200;
-        const currentLength = $(this).val().length;
-        const remaining = maxLength - currentLength;
-        $('#charCount').text(remaining);
-    });
-    
-    // 图片预览
-    $('#momentImage').change(function() {
-        const file = this.files[0];
-        if (file) {
-            $('#imagePreviewRow').empty();
-            $('#imagePreviewContainer').removeClass('d-none');
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const col = $(`<div class="col-12 mb-2"></div>`);
-                const img = $(`<img src="${e.target.result}" class="img-fluid rounded" style="max-height: 200px; object-fit: cover;">`);
-                col.append(img);
-                $('#imagePreviewRow').append(col);
-            }
-            reader.readAsDataURL(file);
-        } else {
-            $('#imagePreviewContainer').addClass('d-none');
-        }
-    });
-    
-    // 发布朋友圈表单提交
-    $('#postMomentForm').submit(function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        
-        $.ajax({
-            url: '/post_moment',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                if (response.success) {
-                    alert('发布成功！');
-                    $('#momentContent').val('');
-                    $('#momentImage').val('');
-                    $('#charCount').text('200');
-                    $('#imagePreviewContainer').addClass('d-none');
-                    $('#imagePreviewRow').empty();
-                    loadMoments(); // 重新加载朋友圈
-                } else {
-                    alert('发布失败：' + response.message);
+    $(document).ready(function () {
+        // 加载朋友圈
+        loadMoments();
+
+        // 设置定时刷新
+        setInterval(loadMoments, 30000);
+
+        // 字符计数
+        $('#momentContent').on('input', function () {
+            const maxLength = 200;
+            const currentLength = $(this).val().length;
+            const remaining = maxLength - currentLength;
+            $('#charCount').text(remaining);
+        });
+
+        // 图片预览
+        $('#momentImage').change(function () {
+            const file = this.files[0];
+            if (file) {
+                $('#imagePreviewRow').empty();
+                $('#imagePreviewContainer').removeClass('d-none');
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const col = $(`<div class="col-12 mb-2"></div>`);
+                    const img = $(`<img src="${e.target.result}" class="img-fluid rounded" style="max-height: 200px; object-fit: cover;">`);
+                    col.append(img);
+                    $('#imagePreviewRow').append(col);
                 }
-            },
-            error: function() {
-                alert('发布失败，请稍后重试');
+                reader.readAsDataURL(file);
+            } else {
+                $('#imagePreviewContainer').addClass('d-none');
             }
         });
-    });
-});
 
-// 加载朋友圈
-function loadMoments() {
-    $.get('/get_moments', function(response) {
-        if (response.success) {
-            displayMoments(response.data);
-        } else {
-            $('#momentsContainer').html(`<div class="alert alert-warning m-3">${response.message}</div>`);
-        }
-    }).fail(function() {
-        $('#momentsContainer').html(`<div class="alert alert-danger m-3">加载朋友圈失败，请稍后重试</div>`);
-    });
-}
+        // 发布朋友圈表单提交
+        $('#postMomentForm').submit(function (e) {
+            e.preventDefault();
 
-// 显示朋友圈
-function displayMoments(moments) {
-    let html = '';
-    
-    if (moments.length === 0) {
-        html = `<div class="text-center p-5">
+            const formData = new FormData(this);
+
+            $.ajax({
+                url: '/post_moment',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    if (response.success) {
+                        alert('发布成功！');
+                        $('#momentContent').val('');
+                        $('#momentImage').val('');
+                        $('#charCount').text('200');
+                        $('#imagePreviewContainer').addClass('d-none');
+                        $('#imagePreviewRow').empty();
+                        loadMoments(); // 重新加载朋友圈
+                    } else {
+                        alert('发布失败：' + response.message);
+                    }
+                },
+                error: function () {
+                    alert('发布失败，请稍后重试');
+                }
+            });
+        });
+    });
+
+    // 加载朋友圈
+    function loadMoments() {
+        $.get('/get_moments', function (response) {
+            if (response.success) {
+                displayMoments(response.data);
+            } else {
+                $('#momentsContainer').html(`<div class="alert alert-warning m-3">${response.message}</div>`);
+            }
+        }).fail(function () {
+            $('#momentsContainer').html(`<div class="alert alert-danger m-3">加载朋友圈失败，请稍后重试</div>`);
+        });
+    }
+
+    // 显示朋友圈
+    function displayMoments(moments) {
+        let html = '';
+
+        if (moments.length === 0) {
+            html = `<div class="text-center p-5">
             <i class="fas fa-globe-asia fa-3x text-muted mb-3"></i>
             <p class="text-muted">暂无朋友圈内容，快来发布第一条吧！</p>
         </div>`;
-    } else {
-        moments.forEach(function(moment) {
-            html += `
+        } else {
+            moments.forEach(function (moment) {
+                html += `
             <div class="border-bottom p-3">
                 <div class="d-flex">
                     <div class="flex-shrink-0">
@@ -185,15 +186,15 @@ function displayMoments(moments) {
                     </div>
                     <div class="flex-grow-1 ms-3">
                         <div class="d-flex justify-content-between">
-                            <h6 class="mb-1">${moment.user_name}</h6>
-                            <small class="text-muted">${moment.post_time}</small>
+                            <h6 class="mb-1">${escapeHtml(moment.user_name)}</h6>
+                            <small class="text-muted">${escapeHtml(moment.post_time)}</small>
                         </div>
                         <p class="text-muted small mb-2">
-                            <i class="fas fa-phone"></i> ${moment.user_info.phone} | 
-                            <i class="fas fa-globe"></i> ${moment.user_info.place} | 
-                            <i class="fas fa-venus-mars"></i> ${moment.user_info.sex}
+                            <i class="fas fa-phone"></i> ${escapeHtml(moment.user_info.phone)} | 
+                            <i class="fas fa-globe"></i> ${escapeHtml(moment.user_info.place)} | 
+                            <i class="fas fa-venus-mars"></i> ${escapeHtml(moment.user_info.sex)}
                         </p>
-                        ${moment.content ? `<p class="mb-2">${moment.content}</p>` : ''}
+                        ${moment.content ? `<p class="mb-2">${escapeHtml(moment.content)}</p>` : ''}
                         
                         ${moment.image_paths ? `
                         <div class="row g-2 mb-2">
@@ -217,8 +218,8 @@ function displayMoments(moments) {
                         <div class="mt-2 bg-light rounded p-2" id="commentsContainer_${moment.id}">
                             ${moment.comments.map(comment => `
                             <div class="mb-1">
-                                <strong>${comment.user_name}:</strong> ${comment.comment}
-                                <small class="text-muted float-end">${comment.comment_time}</small>
+                                <strong>${escapeHtml(comment.user_name)}:</strong> ${escapeHtml(comment.comment)}
+                                <small class="text-muted float-end">${escapeHtml(comment.comment_time)}</small>
                             </div>
                             `).join('')}
                         </div>` : ''}
@@ -233,86 +234,86 @@ function displayMoments(moments) {
                     </div>
                 </div>
             </div>`;
+            });
+        }
+
+        $('#momentsContainer').html(html);
+    }
+
+
+    // 点赞朋友圈
+    function likeMoment(momentId, button) {
+        $.post('/like_moment', {
+            moment_id: momentId
+        }, function (response) {
+            if (response.success) {
+                const likeCountElement = $('#likeCount_' + momentId);
+                let currentCount = parseInt(likeCountElement.text());
+
+                if (response.action === 'like') {
+                    $(button).find('i').addClass('text-primary');
+                    likeCountElement.text(currentCount + 1);
+                } else {
+                    $(button).find('i').removeClass('text-primary');
+                    likeCountElement.text(currentCount - 1);
+                }
+            } else {
+                alert('操作失败：' + response.message);
+            }
+        }).fail(function () {
+            alert('操作失败，请稍后重试');
         });
     }
-    
-    $('#momentsContainer').html(html);
-}
 
+    // 添加评论
+    function addComment(momentId) {
+        const commentInput = $('#commentInput_' + momentId);
+        const comment = commentInput.val().trim();
 
-// 点赞朋友圈
-function likeMoment(momentId, button) {
-    $.post('/like_moment', {
-        moment_id: momentId
-    }, function(response) {
-        if (response.success) {
-            const likeCountElement = $('#likeCount_' + momentId);
-            let currentCount = parseInt(likeCountElement.text());
-            
-            if (response.action === 'like') {
-                $(button).find('i').addClass('text-primary');
-                likeCountElement.text(currentCount + 1);
+        if (!comment) {
+            alert('请输入评论内容');
+            return;
+        }
+
+        if (comment.length > 200) {
+            alert('评论内容不能超过200字');
+            return;
+        }
+
+        $.post('/comment_moment', {
+            moment_id: momentId,
+            comment: comment
+        }, function (response) {
+            if (response.success) {
+                // 清空输入框
+                commentInput.val('');
+                // 重新加载朋友圈
+                loadMoments();
             } else {
-                $(button).find('i').removeClass('text-primary');
-                likeCountElement.text(currentCount - 1);
+                alert('评论失败：' + response.message);
             }
-        } else {
-            alert('操作失败：' + response.message);
+        }).fail(function () {
+            alert('评论失败，请稍后重试');
+        });
+    }
+
+    // 回车键发送评论
+    $(document).on('keypress', '.comment-input', function (e) {
+        if (e.which == 13) {
+            const momentId = $(this).attr('id').split('_')[1];
+            addComment(momentId);
         }
-    }).fail(function() {
-        alert('操作失败，请稍后重试');
     });
-}
 
-// 添加评论
-function addComment(momentId) {
-    const commentInput = $('#commentInput_' + momentId);
-    const comment = commentInput.val().trim();
-    
-    if (!comment) {
-        alert('请输入评论内容');
-        return;
-    }
-    
-    if (comment.length > 200) {
-        alert('评论内容不能超过200字');
-        return;
-    }
-    
-    $.post('/comment_moment', {
-        moment_id: momentId,
-        comment: comment
-    }, function(response) {
-        if (response.success) {
-            // 清空输入框
-            commentInput.val('');
-            // 重新加载朋友圈
-            loadMoments();
-        } else {
-            alert('评论失败：' + response.message);
-        }
-    }).fail(function() {
-        alert('评论失败，请稍后重试');
-    });
-}
-
-// 回车键发送评论
-$(document).on('keypress', '.comment-input', function(e) {
-    if (e.which == 13) {
-        const momentId = $(this).attr('id').split('_')[1];
-        addComment(momentId);
-    }
-});
-
-// 显示朋友圈详情
-function showMomentDetail(momentId) {
-    // 获取特定朋友圈的详细信息
-    $.get('/get_moments', function(response) {
-        if (response.success) {
-            // 找到对应的moment
-            const moment = response.data.find(m => m.id == momentId);
-            if (moment) {
-                let html = `
+    // 显示朋友圈详情
+    function showMomentDetail(momentId) {
+        // 获取特定朋友圈的详细信息
+        $.get('/get_moments', function (response) {
+            if (response.success) {
+                // 找到对应的moment
+                const moment = response.data.find(m => m.id == momentId);
+                if (moment) {
+                    let html = `
                 <div class="d-flex">
                     <div class="flex-shrink-0">
                         <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
@@ -321,15 +322,15 @@ function showMomentDetail(momentId) {
                     </div>
                     <div class="flex-grow-1 ms-3">
                         <div class="d-flex justify-content-between">
-                            <h6 class="mb-1">${moment.user_name}</h6>
-                            <small class="text-muted">${moment.post_time}</small>
+                            <h6 class="mb-1">${escapeHtml(moment.user_name)}</h6>
+                            <small class="text-muted">${escapeHtml(moment.post_time)}</small>
                         </div>
                         <p class="text-muted small mb-2">
-                            <i class="fas fa-phone"></i> ${moment.user_info.phone} | 
-                            <i class="fas fa-globe"></i> ${moment.user_info.place} | 
-                            <i class="fas fa-venus-mars"></i> ${moment.user_info.sex}
+                            <i class="fas fa-phone"></i> ${escapeHtml(moment.user_info.phone)} | 
+                            <i class="fas fa-globe"></i> ${escapeHtml(moment.user_info.place)} | 
+                            <i class="fas fa-venus-mars"></i> ${escapeHtml(moment.user_info.sex)}
                         </p>
-                        ${moment.content ? `<p class="mb-3">${moment.content}</p>` : ''}
+                        ${moment.content ? `<p class="mb-3">${escapeHtml(moment.content)}</p>` : ''}
                         
                         ${moment.image_paths ? `
                         <div class="mb-3">
@@ -350,8 +351,8 @@ function showMomentDetail(momentId) {
                             <div class="mt-2 bg-light rounded p-2" id="detailCommentsContainer_${moment.id}">
                                 ${moment.comments.map(comment => `
                                 <div class="mb-2">
-                                    <strong>${comment.user_name}:</strong> ${comment.comment}
-                                    <small class="text-muted d-block">${comment.comment_time}</small>
+                                    <strong>${escapeHtml(comment.user_name)}:</strong> ${escapeHtml(comment.comment)}
+                                    <small class="text-muted d-block">${escapeHtml(comment.comment_time)}</small>
                                 </div>
                                 `).join('')}
                             </div>` : '<p class="text-muted">暂无评论</p>'}
@@ -366,48 +367,48 @@ function showMomentDetail(momentId) {
                         </div>
                     </div>
                 </div>`;
-                
-                $('#momentDetailContent').html(html);
-                $('#momentDetailModal').modal('show');
-            }
-        } else {
-            alert('获取朋友圈详情失败：' + response.message);
-        }
-    }).fail(function() {
-        alert('获取朋友圈详情失败，请稍后重试');
-    });
-}
 
-// 详情页添加评论
-function addDetailComment(momentId) {
-    const commentInput = $('#detailCommentInput_' + momentId);
-    const comment = commentInput.val().trim();
-    
-    if (!comment) {
-        alert('请输入评论内容');
-        return;
+                    $('#momentDetailContent').html(html);
+                    $('#momentDetailModal').modal('show');
+                }
+            } else {
+                alert('获取朋友圈详情失败：' + response.message);
+            }
+        }).fail(function () {
+            alert('获取朋友圈详情失败，请稍后重试');
+        });
     }
-    
-    if (comment.length > 200) {
-        alert('评论内容不能超过200字');
-        return;
-    }
-    
-    $.post('/comment_moment', {
-        moment_id: momentId,
-        comment: comment
-    }, function(response) {
-        if (response.success) {
-            // 清空输入框
-            commentInput.val('');
-            // 重新加载详情
-            showMomentDetail(momentId);
-        } else {
-            alert('评论失败：' + response.message);
+
+    // 详情页添加评论
+    function addDetailComment(momentId) {
+        const commentInput = $('#detailCommentInput_' + momentId);
+        const comment = commentInput.val().trim();
+
+        if (!comment) {
+            alert('请输入评论内容');
+            return;
         }
-    }).fail(function() {
-        alert('评论失败，请稍后重试');
-    });
-}
+
+        if (comment.length > 200) {
+            alert('评论内容不能超过200字');
+            return;
+        }
+
+        $.post('/comment_moment', {
+            moment_id: momentId,
+            comment: comment
+        }, function (response) {
+            if (response.success) {
+                // 清空输入框
+                commentInput.val('');
+                // 重新加载详情
+                showMomentDetail(momentId);
+            } else {
+                alert('评论失败：' + response.message);
+            }
+        }).fail(function () {
+            alert('评论失败，请稍后重试');
+        });
+    }
 </script>
 {% endblock %}

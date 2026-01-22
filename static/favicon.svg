@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bottleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4f46e5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7e22ce;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Bottle shape -->
+  <path fill="url(#bottleGradient)" d="M320,160V80c0-26.5-21.5-48-48-48h-32c-26.5,0-48,21.5-48,48v80c-44.2,0-80,35.8-80,80v208c0,44.2,35.8,80,80,80h128 c44.2,0,80-35.8,80-80V240C400,195.8,364.2,160,320,160z M224,80c0-8.8,7.2-16,16-16h32c8.8,0,16,7.2,16,16v80h-64V80z M368,448 c0,26.5-21.5,48-48,48H192c-26.5,0-48-21.5-48-48V240c0-26.5,21.5-48,48-48h128c26.5,0,48,21.5,48,48V448z"/>
+  <!-- Liquid/Ocean waves -->
+  <path fill="#ffffff" fill-opacity="0.3" d="M144,384c20-10,40-10,60,0s40,10,60,0s40-10,60,0s40,10,60,0v64c0,26.5-21.5,48-48,48H192c-26.5,0-48-21.5-48-48V384z"/>
+  <!-- Paper/Message inside -->
+  <rect x="230" y="260" width="52" height="80" rx="4" fill="#ffffff" transform="rotate(-10 256 300)"/>
+</svg>

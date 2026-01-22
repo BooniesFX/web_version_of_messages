@@ -10,11 +10,19 @@ import datetime
 import base64
 import dotenv
 from flask_socketio import SocketIO, emit, join_room, leave_room
-dotenv.load_dotenv("../.env")  # 从 .env 文件加载环境变量
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_wtf.csrf import CSRFProtect
+from werkzeug.utils import secure_filename
+
+dotenv.load_dotenv()  # 默认加载当前目录下的 .env 文件
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # 在生产环境中应该使用更安全的密钥
+# 使用强随机密钥（实际应用中应从环境变量读取）
+app.secret_key = os.getenv('SECRET_KEY', 'default-unsecure-key-fix-me-in-production-1234567890') 
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 200)) * 1024 * 1024  # 限制上传文件大小为200MB
+
+# Initialize CSRF
+csrf = CSRFProtect(app)
 
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -48,7 +56,23 @@ def login():
                 flash('用户不存在', 'error')
             else:
                 db_password = resultset[0][4]
-                if password == db_password:
+                # 检查密码（支持哈希和明文迁移）
+                is_valid = False
+                if db_password.startswith('pbkdf2:sha256:') or db_password.startswith('scrypt:'):
+                    is_valid = check_password_hash(db_password, password)
+                else:
+                    # 兼容存量明文密码
+                    if password == db_password:
+                        is_valid = True
+                        # 自动升级为哈希密码
+                        try:
+                            new_hash = generate_password_hash(password)
+                            cursor.execute("UPDATE users SET password = ? WHERE s_name = ?", (new_hash, username))
+                            conn.commit()
+                        except Exception as e:
+                            print(f"升级密码哈希失败: {str(e)}")
+
+                if is_valid:
                     session['username'] = username
                     session['user_info'] = {
                         'name': resultset[0][0],
@@ -90,8 +114,10 @@ def register():
         try:
             conn = fuc.get_db_connection()
             cursor = conn.cursor()
+            # 使用 generate_password_hash 对密码进行加密
+            hashed_password = generate_password_hash(password)
             cursor.execute("INSERT INTO users(s_name,s_phone_num,s_sex,place,password) VALUES (?,?,?,?,?)", 
-                          (name, phone, sex, place, password))
+                          (name, phone, sex, place, hashed_password))
             conn.commit()
             conn.close()
             flash('注册成功！', 'success')
@@ -709,7 +735,8 @@ def chat_messages(chat_with_user):
                 'time': file['send_time'],
                 'is_read': file['is_read'],
                 'is_withdrawn': False,
-                'file_size': file['file_size']
+                'file_size': file['file_size'],
+                'token': file.get('token')
             })
         
         # 按时间排序
@@ -762,13 +789,22 @@ def send_private_image():
     if image_file.filename == '':
         return jsonify({'success': False, 'message': '没有选择图片'})
     
+    # 验证文件后缀名
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif'}
+    file_ext = os.path.splitext(image_file.filename)[1].lower()
+    if file_ext not in allowed_extensions:
+        return jsonify({'success': False, 'message': '不支持的文件格式，仅限 JPG, PNG, GIF'})
+    
     try:
         # 保存图片到临时文件
         import tempfile
         import datetime
+        from werkzeug.utils import secure_filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         temp_dir = tempfile.gettempdir()
-        temp_filename = f"temp_image_{timestamp}{os.path.splitext(image_file.filename)[1]}"
+        # Use secure_filename for safety
+        safe_filename = secure_filename(image_file.filename)
+        temp_filename = f"temp_image_{timestamp}_{safe_filename}"
         temp_path = os.path.join(temp_dir, temp_filename)
         image_file.save(temp_path)
         
@@ -796,6 +832,63 @@ def send_private_image():
         if 'temp_path' in locals() and os.path.exists(temp_path):
             os.remove(temp_path)
         return jsonify({'success': False, 'message': f'发送图片时发生错误: {str(e)}'})
+
+# 发送私聊语音消息
+@app.route('/send_private_voice', methods=['POST'])
+def send_private_voice():
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    receiver_name = request.form['receiver']
+    if 'voice' not in request.files:
+        return jsonify({'success': False, 'message': '没有上传语音文件'})
+    
+    voice_file = request.files['voice']
+    if voice_file.filename == '':
+        return jsonify({'success': False, 'message': '没有选择语音文件'})
+    
+    allowed_voice_extensions = {'.wav', '.mp3', '.m4a', '.webm'}
+    file_ext = os.path.splitext(voice_file.filename)[1].lower()
+    if file_ext not in allowed_voice_extensions:
+        return jsonify({'success': False, 'message': '不支持的音频格式，仅限 WAV, MP3, M4A, WEBM'})
+
+    try:
+        # Create file storage directory for voice messages
+        voice_dir = os.path.join(app.root_path, 'static', 'shared_files', 'voice')
+        if not os.path.exists(voice_dir):
+            os.makedirs(voice_dir)
+        
+        import datetime
+        from werkzeug.utils import secure_filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        safe_filename = secure_filename(voice_file.filename)
+        unique_filename = f"{session['username']}_{timestamp}_{safe_filename}"
+        destination_path = os.path.join(voice_dir, unique_filename)
+        
+        voice_file.save(destination_path)
+        
+        # Save relative path to database
+        relative_path = os.path.join('shared_files', 'voice', unique_filename)
+        
+        # Assuming fuc.send_private_file_message can handle voice files
+        # You might need to adjust fuc.send_private_file_message or create a new one
+        if fuc.send_private_file_message(session['username'], receiver_name, relative_path, voice_file.mimetype, os.path.getsize(destination_path)):
+            # Real-time notification for new file/voice message
+            socketio.emit('new_private_message', {
+                'sender': session['username'],
+                'type': 'voice',
+                'content': unique_filename, # Or a URL to the voice file
+                'file_path': relative_path,
+                'time': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }, room=receiver_name)
+            return jsonify({'success': True, 'message': '语音发送成功'})
+        else:
+            os.remove(destination_path) # Clean up if DB save fails
+            return jsonify({'success': False, 'message': '语音发送失败'})
+    except Exception as e:
+        if 'destination_path' in locals() and os.path.exists(destination_path):
+            os.remove(destination_path)
+        return jsonify({'success': False, 'message': f'发送语音时发生错误: {str(e)}'})
 
 # 退出登录
 @app.route('/logout')
@@ -1006,8 +1099,10 @@ def post_moment():
                 
                 # 生成唯一的文件名
                 import uuid
+                from werkzeug.utils import secure_filename
                 timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                unique_filename = f"{uuid.uuid4().hex}_{timestamp}{os.path.splitext(image.filename)[1]}"
+                safe_filename = secure_filename(image.filename)
+                unique_filename = f"{uuid.uuid4().hex}_{timestamp}_{safe_filename}"
                 destination_path = os.path.join(image_dir, unique_filename)
                 
                 # 保存图片
@@ -1063,12 +1158,15 @@ def get_moments():
             
             comments = []
             for comment_row in cursor.fetchall():
+                # Mask phone number for comments
+                comment_phone = comment_row[3]
+                masked_comment_phone = comment_phone[:3] + "****" + comment_phone[7:] if comment_phone and len(comment_phone) == 11 else (comment_phone if comment_phone else "未知")
                 comments.append({
                     'user_name': comment_row[0],
                     'comment': comment_row[1],
                     'comment_time': comment_row[2],
                     'user_info': {
-                        'phone': comment_row[3],
+                        'phone': masked_comment_phone,
                         'sex': comment_row[4],
                         'place': comment_row[5]
                     }
@@ -1084,6 +1182,10 @@ def get_moments():
             # 处理图片路径
             image_path = row[3]  # image_paths字段现在是单个路径而不是数组
             
+            # Mask phone number for moment poster
+            poster_phone = row[5]
+            masked_poster_phone = poster_phone[:3] + "****" + poster_phone[7:] if poster_phone and len(poster_phone) == 11 else (poster_phone if poster_phone else "未知")
+
             moments_data.append({
                 'id': row[0],
                 'user_name': row[1],
@@ -1091,7 +1193,7 @@ def get_moments():
                 'image_paths': image_path,  # 使用单个路径而不是数组
                 'post_time': row[4],
                 'user_info': {
-                    'phone': row[5],
+                    'phone': masked_poster_phone,
                     'sex': row[6],
                     'place': row[7]
                 },
@@ -1308,7 +1410,7 @@ def send_file():
         file_type = os.path.splitext(file.filename)[1].lower()
         
         # 保存文件信息到数据库
-        file_id = fuc.save_shared_file(
+        file_id, file_token = fuc.save_shared_file(
             session['username'],
             receiver_name,
             file.filename,
@@ -1318,9 +1420,15 @@ def send_file():
         )
         
         if file_id:
-            
-            
-            
+            # Real-time notification
+            socketio.emit('new_private_message', {
+                'sender': session['username'],
+                'content': file.filename,
+                'type': 'file',
+                'file_id': file_id,
+                'token': file_token,
+                'time': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }, room=receiver_name)
             return jsonify({'success': True, 'message': '发送成功'})
         else:
             # 删除已保存的文件
@@ -1362,7 +1470,7 @@ def send_voice_message():
         file_type = 'audio/webm'
         
         # 保存文件信息到数据库 (using shared_files table)
-        file_id = fuc.save_shared_file(
+        file_id, file_token = fuc.save_shared_file(
             session['username'],
             receiver_name,
             unique_filename,
@@ -1378,6 +1486,8 @@ def send_voice_message():
                 'content': unique_filename,
                 'file_path': os.path.join('shared_files', unique_filename),
                 'type': 'voice',
+                'file_id': file_id,
+                'token': file_token,
                 'time': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }, room=receiver_name)
             
@@ -1400,52 +1510,56 @@ def get_shared_files():
     except Exception as e:
         return jsonify({'success': False, 'message': f'获取分享文件时发生错误: {str(e)}'})
 
-@app.route('/download_file/<int:file_id>')
-def download_file(file_id):
-    """下载分享的文件"""
+@app.route('/download_file/<token>')
+def download_file(token):
+    """根据 Token 下载或预览分享的文件"""
     if 'username' not in session:
         return jsonify({'success': False, 'message': '未登录'})
     
     try:
         from flask import send_file
-        # 获取文件信息
+        # 获取用户权限范围内的文件列表
         files = fuc.get_shared_files(session['username'])
         file_info = None
         
+        # 通过 token 查找文件
         for file in files:
-            if file['id'] == file_id:
+            if file.get('token') == token:
                 file_info = file
                 break
+        
+        # 向后兼容：如果没找到 token 且 token 是数字，按 ID 查找
+        if not file_info and token.isdigit():
+            file_id_int = int(token)
+            for file in files:
+                if file['id'] == file_id_int:
+                    file_info = file
+                    break
         
         if not file_info:
             return jsonify({'success': False, 'message': '文件不存在或无权限访问'})
         
         # 标记文件为已读
-        fuc.mark_file_as_read(file_id)
+        fuc.mark_file_as_read(file_info['id'])
         
         # 构建文件路径
         file_path = os.path.join(app.root_path, 'static', file_info['file_path'])
         
-
-        print(f"DEBUG: Attempting to download file: {file_info['file_name']}")
-        print(f"DEBUG: Constructed file_path: {file_path}")
-        print(f"DEBUG: Does file_path exist? {os.path.exists(file_path)}")
-        print(f"DEBUG: File size from DB: {file_info['file_size']} bytes")
-        print(f"DEBUG: Actual file size on disk: {os.path.getsize(file_path)} bytes")
-
         if not os.path.exists(file_path):
             return jsonify({'success': False, 'message': '文件不存在或已删除'})
 
-        # 返回文件
-        # 使用更可靠的方式发送大文件
-        response = send_file(file_path, download_name=file_info['file_name'], as_attachment=True)
-        # 禁用X-Sendfile功能，确保文件内容正确发送
-        response.headers['X-Sendfile'] = None
-        # 设置正确的Content-Length
+        # 决定是否预览
+        preview_mimetypes = ['image/', 'application/pdf', 'text/', 'video/', 'audio/']
+        as_attachment = True
+        file_type = (file_info.get('file_type') or '').lower()
+        if any(file_type.startswith(m) or file_info['file_name'].lower().endswith(('.pdf', '.jpg', '.png', '.mp4', '.mp3', '.txt')) for m in preview_mimetypes):
+            as_attachment = False
+
+        response = send_file(file_path, download_name=file_info['file_name'], as_attachment=as_attachment)
         response.headers['Content-Length'] = os.path.getsize(file_path)
         return response
     except Exception as e:
-        return jsonify({'success': False, 'message': f'下载文件时发生错误: {str(e)}'})
+        return jsonify({'success': False, 'message': f'访问文件时发生错误: {str(e)}'})
 
 # 消息撤回相关路由
 @app.route('/withdraw_message', methods=['POST'])
