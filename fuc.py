@@ -201,11 +201,10 @@ def call_ai_api(question, system_prompt=""):
             if len(system_prompt) > 1000: system_prompt = system_prompt[:1000]
             
             # 构建URL
-            base_url = "https://yunzhiapi.cn/API/gpt5-nano/index.php"
+            base_url = "https://yunzhiapi.cn/API/depsek3.2.php"
             params = {
                 "question": question,
                 "system": system_prompt,
-                "uid": "142822"
             }
             
             # 发送GET请求
@@ -213,7 +212,7 @@ def call_ai_api(question, system_prompt=""):
             
             if response.status_code == 200:
                 # API返回的是纯文本或JSON，这里假设是直接的回答文本
-                # 根据用户提供的示例：GET https://yunzhiapi.cn/API/gpt5-nano/index.php?question=问题&system=提示词
+                # 根据用户提供的示例：GET https://yunzhiapi.cn/API/depsek3.2.php?question=问题&system=提示词
                 # 我们直接返回响应内容
                 return response.text
             else:
