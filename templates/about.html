@@ -11,54 +11,126 @@
             </div>
             <div class="card-body">
                 <div class="text-center mb-4">
-                    <h2>漂流瓶 v2.0</h2>
-                    <p class="text-muted">网页版</p>
+                    <h2>漂流瓶 v3.0</h2>
+                    <p class="text-muted">网页版 - AI增强版</p>
                 </div>
                 
                 <h5>版本信息</h5>
                 <ul>
-                    <li><strong>当前版本:</strong> v2.0 网页版</li>
+                    <li><strong>当前版本:</strong> v3.0 网页版 AI增强版</li>
                     <li><strong>原始版本:</strong> v1.1 命令行版</li>
+                    <li><strong>中间版本:</strong> v2.0 图形界面版</li>
                 </ul>
                 
-                <h5>主要功能</h5>
+                <h5>核心功能</h5>
                 <ul>
-                    <li>用户注册和登录</li>
+                    <li>用户注册和登录（密码加密存储）</li>
                     <li>发送和接收漂流瓶消息</li>
-                    <li>私聊功能（文本和图片）</li>
-                    <li>群组聊天功能</li>
+                    <li>私聊功能（文本、图片、文件、语音消息）</li>
+                    <li>群组聊天功能（创建、管理、邀请链接）</li>
                     <li>消息已读未读状态显示</li>
+                    <li>消息撤回功能</li>
                     <li>好友搜索和添加</li>
                     <li>群组创建和管理</li>
+                    <li>朋友圈功能（发布动态、点赞、评论）</li>
+                </ul>
+
+                <h5>AI智能功能 ⭐ NEW</h5>
+                <ul>
+                    <li><strong>AI自动回复:</strong> 忙碌时自动回复消息</li>
+                    <li><strong>AI好友:</strong> 与AI助手进行智能对话</li>
+                    <li><strong>消息总结:</strong> AI智能总结未读消息</li>
+                    <li><strong>回复生成:</strong> AI帮助生成聊天回复</li>
+                    <li><strong>群组AI助手:</strong> 在群组中使用 /AI 命令</li>
+                </ul>
+
+                <h5>Mini Apps平台 ⭐ NEW</h5>
+                <ul>
+                    <li><strong>AI生成应用:</strong> 通过自然语言生成HTML5应用</li>
+                    <li><strong>上传自定义应用:</strong> 上传自己开发的HTML应用</li>
+                    <li><strong>应用管理:</strong> 查看、删除已创建的应用</li>
+                    <li><strong>应用分享:</strong> 与好友分享有趣的Mini应用</li>
+                </ul>
+
+                <h5>实时通讯</h5>
+                <ul>
+                    <li>WebSocket实时连接</li>
+                    <li>实时消息推送</li>
+                    <li>在线状态同步</li>
+                    <li>输入状态提示</li>
+                </ul>
+
+                <h5>安全特性</h5>
+                <ul>
+                    <li>CSRF令牌保护</li>
+                    <li>密码哈希加密（pbkdf2:sha256）</li>
+                    <li>文件上传类型和大小限制</li>
+                    <li>SQL注入防护</li>
+                    <li>XSS攻击防护</li>
                 </ul>
                 
                 <h5>技术栈</h5>
                 <ul>
-                    <li><strong>后端:</strong> Python, Flask, SQLite</li>
-                    <li><strong>前端:</strong> HTML, CSS, JavaScript, Bootstrap 5, jQuery</li>
+                    <li><strong>后端:</strong> Python 3.13, Flask 2.3.2, SQLite, Flask-SocketIO 5.3.0</li>
+                    <li><strong>前端:</strong> HTML5, CSS3, JavaScript ES6+, Bootstrap 5.3.0, jQuery 3.6.0</li>
+                    <li><strong>实时通信:</strong> Socket.IO 4.0.1</li>
+                    <li><strong>AI集成:</strong> 第三方AI API</li>
                     <li><strong>数据库:</strong> SQLite</li>
                 </ul>
                 
                 <h5>版本历史</h5>
                 <ul>
-                    <li><strong>v1.1</strong> - 基础命令行版本</li>
+                    <li><strong>v1.1</strong> - 基础命令行版本，实现基本的漂流瓶功能</li>
                     <li><strong>v2.0</strong> - 图形界面版本，新增私聊和图片功能</li>
                     <li><strong>v2.0 网页版</strong> - 基于Flask的网页版本，新增群组功能</li>
+                    <li><strong>v3.0</strong> - AI增强版，新增AI功能、Mini Apps平台、实时通讯等</li>
                 </ul>
-                
+
+                <h5>v3.0 新特性</h5>
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-star"></i> AI智能功能</h6>
+                    <ul class="mb-0">
+                        <li>AI自动回复 - 在忙碌时自动回复消息</li>
+                        <li>AI好友 - 添加AI助手进行智能对话</li>
+                        <li>消息总结 - AI智能总结未读消息内容</li>
+                        <li>回复生成 - AI帮助生成聊天回复建议</li>
+                        <li>群组AI助手 - 在群组中使用 /AI 命令调用AI</li>
+                    </ul>
+                </div>
+
                 <div class="alert alert-info">
+                    <h6><i class="fas fa-gamepad"></i> Mini Apps平台</h6>
+                    <ul class="mb-0">
+                        <li>AI生成应用 - 通过自然语言描述生成HTML5应用</li>
+                        <li>上传自定义应用 - 上传自己开发的HTML应用</li>
+                        <li>应用管理 - 查看、删除已创建的应用</li>
+                        <li>应用分享 - 与好友分享有趣的Mini应用</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-bolt"></i> 实时通讯增强</h6>
+                    <ul class="mb-0">
+                        <li>WebSocket实时连接</li>
+                        <li>实时消息推送</li>
+                        <li>在线状态实时同步</li>
+                        <li>输入状态提示</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-primary">
                     <h5><i class="fas fa-download"></i> 下载程序</h5>
                     <p>您可以下载完整的漂流瓶程序源代码：</p>
                     <a href="{{ url_for('download') }}" class="btn btn-success">
                         <i class="fas fa-download"></i> 下载完整程序
                     </a>
-                    <a href="https://github.com/BoonieBear/chatingAPP" class="btn btn-primary" target="_blank">
+                    <a href="https://github.com/BooniesFX/web_version_of_messages" class="btn btn-primary" target="_blank">
                         <i class="fab fa-github"></i> GitHub仓库
                     </a>
                 </div>
                 
                 <div class="text-center mt-4">
-                    <p class="text-muted">2025 FYH 开发团队.</p>
+                    <p class="text-muted small">本项目仅供学习和研究使用，未经授权不得用于商业用途。</p>
                 </div>
             </div>
         </div>
