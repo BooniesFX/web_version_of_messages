@@ -1850,4 +1850,5 @@ def serve_miniapp(filename):
 if __name__ == '__main__':
     APP_IP = os.getenv('APP_IP', '127.0.0.1')  # 默认值
     APP_PORT = int(os.getenv('APP_PORT', 5000)) # 默认值
-    socketio.run(app, debug=True, host=APP_IP, port=APP_PORT)
+    DEBUG_MODE = os.getenv('DEBUG_MODE', 'False').lower() == 'true'  # 从环境变量读取调试模式
+    socketio.run(app, debug=DEBUG_MODE, host=APP_IP, port=APP_PORT)
