@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频会议 - 漂流瓶</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .meeting-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .meeting-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+        }
+        .status-scheduled { background: #6c757d; color: white; }
+        .status-active { background: #28a745; color: white; }
+        .status-ended { background: #dc3545; color: white; }
+        .meeting-time {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            color: #6c757d;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            border-bottom: 2px solid #0d6efd;
+        }
+    </style>
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block content %}
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-video me-2"></i>视频会议</h2>
+            <button class="btn btn-primary" onclick="openScheduleModal()">
+                <i class="fas fa-plus me-1"></i>预约会议
+            </button>
+        </div>
+
+        <ul class="nav nav-tabs mb-3" id="meetingsTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="upcoming-tab" data-bs-toggle="tab" data-bs-target="#upcoming" type="button" role="tab">
+                    <i class="fas fa-calendar-alt me-1"></i>即将开始
+                    <span class="badge bg-primary ms-1">{{ upcoming_meetings|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">
+                    <i class="fas fa-history me-1"></i>历史会议
+                    <span class="badge bg-secondary ms-1">{{ history_meetings|length }}</span>
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="meetingsTabContent">
+            <!-- 即将开始的会议 -->
+            <div class="tab-pane fade show active" id="upcoming" role="tabpanel">
+                {% if upcoming_meetings %}
+                    <div class="row">
+                        {% for meeting in upcoming_meetings %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card meeting-card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h5 class="card-title mb-0">{{ meeting.title }}</h5>
+                                        <span class="status-badge status-{{ meeting.status }}">
+                                            {% if meeting.status == 'scheduled' %}未开始
+                                            {% elif meeting.status == 'active' %}进行中
+                                            {% else %}已结束{% endif %}
+                                        </span>
+                                    </div>
+                                    <p class="meeting-time mb-2">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ meeting.start_time }} - {{ meeting.end_time }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>创建者: {{ meeting.creator_name }}
+                                        </small>
+                                    </p>
+                                    <div class="d-flex gap-2">
+                                        {% if meeting.status == 'active' %}
+                                            <a href="/meeting_page/{{ meeting.id }}" class="btn btn-success btn-sm flex-fill">
+                                                <i class="fas fa-sign-in-alt me-1"></i>加入
+                                            </a>
+                                        {% else %}
+                                            <button class="btn btn-secondary btn-sm flex-fill" disabled>
+                                                <i class="fas fa-clock me-1"></i>未开始
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <h5>暂无即将开始的会议</h5>
+                        <p>点击上方"预约会议"按钮创建新会议</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- 历史会议 -->
+            <div class="tab-pane fade" id="history" role="tabpanel">
+                {% if history_meetings %}
+                    <div class="row">
+                        {% for meeting in history_meetings %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card meeting-card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h5 class="card-title mb-0">{{ meeting.title }}</h5>
+                                        <span class="status-badge status-ended">已结束</span>
+                                    </div>
+                                    <p class="meeting-time mb-2">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ meeting.start_time }} - {{ meeting.end_time }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>创建者: {{ meeting.creator_name }}
+                                        </small>
+                                    </p>
+                                    <a href="/meeting_playback/{{ meeting.id }}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-play-circle me-1"></i>查看回放
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-history"></i>
+                        <h5>暂无历史会议</h5>
+                        <p>您还没有参加过任何会议</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 预约会议模态框 -->
+    <div class="modal fade" id="scheduleMeetingModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-video me-2"></i>预约视频会议</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">选择聊天对象</label>
+                        <select class="form-select" id="meetingChatSelect">
+                            <option value="">-- 选择聊天对象 --</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="meetingTitle" class="form-label">会议标题</label>
+                        <input type="text" class="form-control" id="meetingTitle" placeholder="输入会议标题（可选）">
+                        <div class="form-text">如不填写，将使用默认标题</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="meetingStartTime" class="form-label">开始时间</label>
+                        <input type="datetime-local" class="form-control" id="meetingStartTime">
+                    </div>
+                    <div class="mb-3">
+                        <label for="meetingEndTime" class="form-label">结束时间</label>
+                        <input type="datetime-local" class="form-control" id="meetingEndTime">
+                        <div class="form-text">会议时长最长2小时</div>
+                    </div>
+                    <div id="meetingError" class="alert alert-danger" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="scheduleMeeting()">预约</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 加载聊天对象列表
+        function loadChatOptions() {
+            $.get('/get_friends_and_groups', function(data) {
+                if (data.success) {
+                    const select = $('#meetingChatSelect');
+                    select.empty();
+                    select.append('<option value="">-- 选择聊天对象 --</option>');
+                    
+                    // 添加好友
+                    if (data.friends && data.friends.length > 0) {
+                        select.append('<optgroup label="好友">');
+                        data.friends.forEach(function(friend) {
+                            select.append(`<option value="private:${friend}">${friend}</option>`);
+                        });
+                        select.append('</optgroup>');
+                    }
+                    
+                    // 添加群组
+                    if (data.groups && data.groups.length > 0) {
+                        select.append('<optgroup label="群组">');
+                        data.groups.forEach(function(group) {
+                            select.append(`<option value="group:${group.id}">${group.name}</option>`);
+                        });
+                        select.append('</optgroup>');
+                    }
+                }
+            });
+        }
+
+        // 打开预约模态框
+        function openScheduleModal() {
+            loadChatOptions();
+            
+            // 设置默认时间
+            const now = new Date();
+            const startTime = new Date(now.getTime() + 60 * 60 * 1000);
+            const endTime = new Date(now.getTime() + 120 * 60 * 1000);
+            
+            $('#meetingStartTime').val(formatDateTimeLocal(startTime));
+            $('#meetingEndTime').val(formatDateTimeLocal(endTime));
+            $('#meetingTitle').val('');
+            $('#meetingError').hide();
+            
+            $('#scheduleMeetingModal').modal('show');
+        }
+
+        // 格式化日期时间
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        // 预约会议
+        function scheduleMeeting() {
+            const chatValue = $('#meetingChatSelect').val();
+            const title = $('#meetingTitle').val().trim();
+            const startTime = $('#meetingStartTime').val();
+            const endTime = $('#meetingEndTime').val();
+            
+            if (!chatValue) {
+                $('#meetingError').text('请选择聊天对象').show();
+                return;
+            }
+            
+            if (!startTime || !endTime) {
+                $('#meetingError').text('请选择开始和结束时间').show();
+                return;
+            }
+            
+            const [chatType, chatId] = chatValue.split(':');
+            
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            const duration = (end - start) / (1000 * 60 * 60);
+            
+            if (duration > 2) {
+                $('#meetingError').text('会议时长不能超过2小时').show();
+                return;
+            }
+            
+            if (end <= start) {
+                $('#meetingError').text('结束时间必须晚于开始时间').show();
+                return;
+            }
+            
+            $.ajax({
+                url: '/create_meeting',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    title: title,
+                    chat_type: chatType,
+                    chat_id: chatId,
+                    start_time: startTime,
+                    end_time: endTime
+                }),
+                success: function(data) {
+                    if (data.success) {
+                        alert('会议预约成功！');
+                        $('#scheduleMeetingModal').modal('hide');
+                        location.reload();
+                    } else {
+                        $('#meetingError').text(data.message).show();
+                    }
+                },
+                error: function() {
+                    $('#meetingError').text('预约会议失败，请稍后重试').show();
+                }
+            });
+        }
+    </script>
+    {% endblock %}
+</body>
+</html>

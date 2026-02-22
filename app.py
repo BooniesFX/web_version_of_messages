@@ -1659,6 +1659,94 @@ import threading
 import time
 
 
+# 定时更新会议状态
+def update_meeting_statuses():
+    """定时检查并更新会议状态"""
+    conn = None
+    try:
+        conn = fuc.get_db_connection()
+        # 设置超时时间为5秒，避免长时间锁定
+        conn.execute("PRAGMA busy_timeout = 5000")
+        cursor = conn.cursor()
+        
+        now = datetime.datetime.now()
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        print(f"[定时任务] 检查会议状态，当前时间: {now_str}")
+        
+        # 将 scheduled 且到达开始时间的会议更新为 active
+        cursor.execute('''
+            UPDATE meetings 
+            SET status = 'active' 
+            WHERE status = 'scheduled' AND datetime(start_time) <= datetime(?)
+        ''', (now_str,))
+        active_updated = cursor.rowcount
+        
+        # 将 active 且到达结束时间的会议更新为 ended
+        cursor.execute('''
+            UPDATE meetings 
+            SET status = 'ended' 
+            WHERE status = 'active' AND datetime(end_time) <= datetime(?)
+        ''', (now_str,))
+        ended_updated = cursor.rowcount
+        
+        conn.commit()
+        
+        if active_updated > 0 or ended_updated > 0:
+            print(f"[定时任务] 更新了 {active_updated} 个会议为active，{ended_updated} 个会议为ended")
+        
+    except Exception as e:
+        print(f"更新会议状态时发生错误: {str(e)}")
+        if conn:
+            try:
+                conn.rollback()
+            except:
+                pass
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
+
+
+# 定时清理聊天记录（独立任务，减少锁定时间）
+def cleanup_chat_messages():
+    """定时清理30天前的会议聊天记录"""
+    try:
+        fuc.cleanup_old_meeting_chat_messages()
+    except Exception as e:
+        print(f"清理聊天记录时发生错误: {str(e)}")
+
+
+# 启动定时任务
+def start_background_tasks():
+    """启动后台定时任务"""
+    def run_meeting_status_task():
+        while True:
+            try:
+                update_meeting_statuses()
+            except Exception as e:
+                print(f"会议状态更新任务错误: {str(e)}")
+            time.sleep(60)  # 每分钟检查一次
+    
+    def run_cleanup_task():
+        # 等待2分钟后开始第一次清理
+        time.sleep(120)
+        while True:
+            try:
+                cleanup_chat_messages()
+            except Exception as e:
+                print(f"清理任务错误: {str(e)}")
+            time.sleep(3600)  # 每小时清理一次
+    
+    thread1 = threading.Thread(target=run_meeting_status_task, daemon=True)
+    thread1.start()
+    
+    thread2 = threading.Thread(target=run_cleanup_task, daemon=True)
+    thread2.start()
+
+
 # SocketIO Event Handlers
 @socketio.on('connect')
 def handle_connect():
@@ -1697,6 +1785,307 @@ def handle_mark_group_read(data):
     message_id = data.get('message_id')
     if message_id:
         fuc.mark_group_message_read(message_id, session['username'])
+
+
+# ==================== Socket.IO 视频会议信令事件 ====================
+
+@socketio.on('join_meeting_room')
+def handle_join_meeting_room(data):
+    """用户加入会议房间"""
+    meeting_id = data.get('meeting_id')
+    if meeting_id and 'username' in session:
+        room_name = f"meeting_{meeting_id}"
+        join_room(room_name)
+        
+        # 更新参与者在线状态
+        fuc.update_participant_status(meeting_id, session['username'], is_online=1)
+        
+        # 通知房间内其他用户有新参与者加入
+        emit('participant_joined', {
+            'user_name': session['username'],
+            'meeting_id': meeting_id
+        }, room=room_name, include_self=False)
+        
+        # 向新加入者发送当前房间内的参与者列表
+        participants = fuc.get_meeting_participants(meeting_id)
+        online_participants = [p['user_name'] for p in participants if p['is_online'] and p['user_name'] != session['username']]
+        emit('existing_participants', {
+            'participants': online_participants,
+            'meeting_id': meeting_id
+        })
+
+
+@socketio.on('leave_meeting_room')
+def handle_leave_meeting_room(data):
+    """用户离开会议房间"""
+    meeting_id = data.get('meeting_id')
+    if meeting_id and 'username' in session:
+        room_name = f"meeting_{meeting_id}"
+        leave_room(room_name)
+        
+        # 更新参与者在线状态
+        fuc.update_participant_status(meeting_id, session['username'], is_online=0)
+        
+        # 通知房间内其他用户有参与者离开
+        emit('participant_left', {
+            'user_name': session['username'],
+            'meeting_id': meeting_id
+        }, room=room_name, include_self=False)
+
+
+@socketio.on('webrtc_offer')
+def handle_webrtc_offer(data):
+    """转发 WebRTC offer"""
+    target_user = data.get('target_user')
+    offer = data.get('offer')
+    meeting_id = data.get('meeting_id')
+    
+    if target_user and offer and meeting_id:
+        emit('webrtc_offer', {
+            'offer': offer,
+            'from_user': session.get('username'),
+            'meeting_id': meeting_id
+        }, room=target_user)
+
+
+@socketio.on('webrtc_answer')
+def handle_webrtc_answer(data):
+    """转发 WebRTC answer"""
+    target_user = data.get('target_user')
+    answer = data.get('answer')
+    meeting_id = data.get('meeting_id')
+    
+    if target_user and answer and meeting_id:
+        emit('webrtc_answer', {
+            'answer': answer,
+            'from_user': session.get('username'),
+            'meeting_id': meeting_id
+        }, room=target_user)
+
+
+@socketio.on('webrtc_ice_candidate')
+def handle_webrtc_ice_candidate(data):
+    """转发 ICE candidate"""
+    target_user = data.get('target_user')
+    candidate = data.get('candidate')
+    meeting_id = data.get('meeting_id')
+    
+    if target_user and candidate and meeting_id:
+        emit('webrtc_ice_candidate', {
+            'candidate': candidate,
+            'from_user': session.get('username'),
+            'meeting_id': meeting_id
+        }, room=target_user)
+
+
+@socketio.on('media_status_change')
+def handle_media_status_change(data):
+    """处理媒体状态变化（摄像头/麦克风）"""
+    meeting_id = data.get('meeting_id')
+    is_camera_on = data.get('is_camera_on')
+    is_mic_on = data.get('is_mic_on')
+    
+    if meeting_id and 'username' in session:
+        # 更新数据库中的状态
+        update_data = {}
+        if is_camera_on is not None:
+            update_data['is_camera_on'] = 1 if is_camera_on else 0
+        if is_mic_on is not None:
+            update_data['is_mic_on'] = 1 if is_mic_on else 0
+        
+        if update_data:
+            fuc.update_participant_status(meeting_id, session['username'], **update_data)
+        
+        # 广播状态变化给房间内其他用户
+        room_name = f"meeting_{meeting_id}"
+        emit('participant_media_status', {
+            'user_name': session['username'],
+            'is_camera_on': is_camera_on,
+            'is_mic_on': is_mic_on,
+            'meeting_id': meeting_id
+        }, room=room_name, include_self=False)
+
+
+@socketio.on('screen_share_start')
+def handle_screen_share_start(data):
+    """处理屏幕共享开始"""
+    meeting_id = data.get('meeting_id')
+    
+    if meeting_id and 'username' in session:
+        # 更新数据库状态
+        fuc.update_participant_status(meeting_id, session['username'], is_screen_sharing=1)
+        
+        # 广播给房间内所有用户
+        room_name = f"meeting_{meeting_id}"
+        emit('screen_share_started', {
+            'user_name': session['username'],
+            'meeting_id': meeting_id
+        }, room=room_name, include_self=False)
+
+
+@socketio.on('screen_share_stop')
+def handle_screen_share_stop(data):
+    """处理屏幕共享停止"""
+    meeting_id = data.get('meeting_id')
+    
+    if meeting_id and 'username' in session:
+        # 更新数据库状态
+        fuc.update_participant_status(meeting_id, session['username'], is_screen_sharing=0)
+        
+        # 广播给房间内所有用户
+        room_name = f"meeting_{meeting_id}"
+        emit('screen_share_stopped', {
+            'user_name': session['username'],
+            'meeting_id': meeting_id
+        }, room=room_name, include_self=False)
+
+
+@socketio.on('raise_hand')
+def handle_raise_hand(data):
+    """处理举手"""
+    meeting_id = data.get('meeting_id')
+    
+    if meeting_id and 'username' in session:
+        # 更新数据库状态
+        fuc.update_participant_status(meeting_id, session['username'], is_hand_raised=1)
+        
+        # 广播给房间内所有用户
+        room_name = f"meeting_{meeting_id}"
+        emit('hand_raised', {
+            'user_name': session['username'],
+            'meeting_id': meeting_id
+        }, room=room_name)
+        
+        # 保存系统消息
+        fuc.save_meeting_chat_message(meeting_id, 'system', 
+            f"{session['username']} 举手了", 'system')
+
+
+@socketio.on('lower_hand')
+def handle_lower_hand(data):
+    """处理放下手"""
+    meeting_id = data.get('meeting_id')
+    
+    if meeting_id and 'username' in session:
+        # 更新数据库状态
+        fuc.update_participant_status(meeting_id, session['username'], is_hand_raised=0)
+        
+        # 广播给房间内所有用户
+        room_name = f"meeting_{meeting_id}"
+        emit('hand_lowered', {
+            'user_name': session['username'],
+            'meeting_id': meeting_id
+        }, room=room_name)
+
+
+@socketio.on('meeting_chat_message')
+def handle_meeting_chat_message(data):
+    """处理会议聊天消息"""
+    meeting_id = data.get('meeting_id')
+    message = data.get('message')
+    message_type = data.get('message_type', 'text')
+    
+    if meeting_id and message and 'username' in session:
+        # 保存消息到数据库
+        message_id = fuc.save_meeting_chat_message(
+            meeting_id, session['username'], message, message_type
+        )
+        
+        if message_id:
+            # 广播给房间内所有用户
+            room_name = f"meeting_{meeting_id}"
+            emit('new_chat_message', {
+                'id': message_id,
+                'sender_name': session['username'],
+                'message': message,
+                'message_type': message_type,
+                'sent_at': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'meeting_id': meeting_id
+            }, room=room_name)
+
+
+@socketio.on('admin_mute_audio')
+def handle_admin_mute_audio(data):
+    """管理员静音某用户"""
+    meeting_id = data.get('meeting_id')
+    target_user = data.get('target_user')
+    
+    if meeting_id and target_user and 'username' in session:
+        # 验证是否为会议创建者
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if meeting and meeting['creator_name'] == session['username']:
+            # 更新数据库状态
+            fuc.update_participant_status(meeting_id, target_user, is_mic_on=0)
+            
+            # 通知目标用户
+            emit('admin_muted_audio', {
+                'meeting_id': meeting_id,
+                'by_admin': session['username']
+            }, room=target_user)
+            
+            # 广播给房间内所有用户
+            room_name = f"meeting_{meeting_id}"
+            emit('participant_media_status', {
+                'user_name': target_user,
+                'is_mic_on': False,
+                'meeting_id': meeting_id
+            }, room=room_name)
+
+
+@socketio.on('admin_disable_video')
+def handle_admin_disable_video(data):
+    """管理员关闭某用户摄像头"""
+    meeting_id = data.get('meeting_id')
+    target_user = data.get('target_user')
+    
+    if meeting_id and target_user and 'username' in session:
+        # 验证是否为会议创建者
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if meeting and meeting['creator_name'] == session['username']:
+            # 更新数据库状态
+            fuc.update_participant_status(meeting_id, target_user, is_camera_on=0)
+            
+            # 通知目标用户
+            emit('admin_disabled_video', {
+                'meeting_id': meeting_id,
+                'by_admin': session['username']
+            }, room=target_user)
+            
+            # 广播给房间内所有用户
+            room_name = f"meeting_{meeting_id}"
+            emit('participant_media_status', {
+                'user_name': target_user,
+                'is_camera_on': False,
+                'meeting_id': meeting_id
+            }, room=room_name)
+
+
+@socketio.on('admin_stop_screen_share')
+def handle_admin_stop_screen_share(data):
+    """管理员停止某用户屏幕共享"""
+    meeting_id = data.get('meeting_id')
+    target_user = data.get('target_user')
+    
+    if meeting_id and target_user and 'username' in session:
+        # 验证是否为会议创建者
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if meeting and meeting['creator_name'] == session['username']:
+            # 更新数据库状态
+            fuc.update_participant_status(meeting_id, target_user, is_screen_sharing=0)
+            
+            # 通知目标用户
+            emit('admin_stopped_screen_share', {
+                'meeting_id': meeting_id,
+                'by_admin': session['username']
+            }, room=target_user)
+            
+            # 广播给房间内所有用户
+            room_name = f"meeting_{meeting_id}"
+            emit('screen_share_stopped', {
+                'user_name': target_user,
+                'meeting_id': meeting_id
+            }, room=room_name)
+
 
 # Mini Apps Configuration and Routes
 MINIAPPS_STORAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'miniapps_storage')
@@ -1847,7 +2236,740 @@ def serve_miniapp(filename):
        
     return send_from_directory(MINIAPPS_STORAGE, filename)
 
+
+# ==================== 视频会议相关路由 ====================
+
+@app.route('/get_friends_and_groups')
+def get_friends_and_groups():
+    """获取用户的好友和群组列表"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        # 获取好友列表
+        friends = fuc.get_friends(session['username'])
+        
+        # 获取群组列表
+        groups = fuc.get_user_groups(session['username'])
+        groups_list = [{'id': g['id'], 'name': g['name']} for g in groups]
+        
+        return jsonify({
+            'success': True,
+            'friends': friends,
+            'groups': groups_list
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'})
+
+
+@app.route('/check_meeting_statuses', methods=['POST'])
+def check_meeting_statuses():
+    """手动触发会议状态检查（用于测试）"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        update_meeting_statuses()
+        return jsonify({'success': True, 'message': '会议状态检查完成'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'检查失败: {str(e)}'})
+
+
+@app.route('/create_meeting', methods=['POST'])
+def create_meeting():
+    """创建会议"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        title = data.get('title', '')
+        chat_type = data.get('chat_type')  # 'private' or 'group'
+        chat_id = data.get('chat_id')  # friend_name or group_id
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        
+        if not all([chat_type, chat_id, start_time, end_time]):
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        # 验证用户是否有权限创建会议（检查是否是聊天参与者）
+        if chat_type == 'private':
+            # 私聊：检查是否是好友
+            friends = fuc.get_friends(session['username'])
+            if chat_id not in friends:
+                return jsonify({'success': False, 'message': '无权为此聊天创建会议'})
+        elif chat_type == 'group':
+            # 群聊：检查是否是群成员
+            if not fuc.is_group_member(chat_id, session['username']):
+                return jsonify({'success': False, 'message': '无权为此群组创建会议'})
+        
+        # 验证时间（会议时长不超过2小时）
+        start_dt = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00').replace('+00:00', ''))
+        end_dt = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00').replace('+00:00', ''))
+        duration = (end_dt - start_dt).total_seconds() / 3600  # 小时
+        
+        if duration > 2:
+            return jsonify({'success': False, 'message': '会议时长不能超过2小时'})
+        
+        if end_dt <= start_dt:
+            return jsonify({'success': False, 'message': '结束时间必须晚于开始时间'})
+        
+        # 默认标题
+        if not title:
+            if chat_type == 'private':
+                title = f"与 {chat_id} 的会议"
+            else:
+                group = fuc.get_group_by_id(chat_id)
+                title = f"{group['name']} 群组会议" if group else "群组会议"
+        
+        meeting_id = fuc.create_meeting(title, session['username'], chat_type, chat_id, start_time, end_time)
+        
+        if meeting_id:
+            return jsonify({'success': True, 'message': '会议创建成功', 'meeting_id': meeting_id})
+        else:
+            return jsonify({'success': False, 'message': '创建会议失败'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'创建会议时发生错误: {str(e)}'})
+
+
+@app.route('/get_meetings')
+def get_meetings():
+    """获取用户的会议列表"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        meetings = fuc.get_user_meetings(session['username'])
+        meetings_list = []
+        
+        for meeting in meetings:
+            meetings_list.append({
+                'id': meeting['id'],
+                'title': meeting['title'],
+                'creator_name': meeting['creator_name'],
+                'chat_type': meeting['chat_type'],
+                'chat_id': meeting['chat_id'],
+                'start_time': meeting['start_time'],
+                'end_time': meeting['end_time'],
+                'status': meeting['status'],
+                'is_recording': meeting['is_recording'],
+                'created_at': meeting['created_at'],
+                'is_creator': meeting['creator_name'] == session['username']
+            })
+        
+        return jsonify({'success': True, 'data': meetings_list})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取会议列表失败: {str(e)}'})
+
+
+@app.route('/get_meeting_history')
+def get_meeting_history():
+    """获取用户的历史会议列表"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        meetings = fuc.get_user_meeting_history(session['username'])
+        meetings_list = []
+        
+        for meeting in meetings:
+            # 获取录制信息
+            recordings = fuc.get_meeting_recordings(meeting['id'])
+            recordings_list = [{
+                'id': r['id'],
+                'file_name': r['file_name'],
+                'duration': r['duration'],
+                'status': r['status']
+            } for r in recordings]
+            
+            meetings_list.append({
+                'id': meeting['id'],
+                'title': meeting['title'],
+                'creator_name': meeting['creator_name'],
+                'start_time': meeting['start_time'],
+                'end_time': meeting['end_time'],
+                'status': meeting['status'],
+                'recordings': recordings_list,
+                'is_creator': meeting['creator_name'] == session['username']
+            })
+        
+        return jsonify({'success': True, 'data': meetings_list})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取历史会议失败: {str(e)}'})
+
+
+@app.route('/get_meeting/<int:meeting_id>')
+def get_meeting(meeting_id):
+    """获取会议详情"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        # 检查权限
+        has_permission, role = fuc.check_meeting_permission(meeting_id, session['username'])
+        if not has_permission:
+            return jsonify({'success': False, 'message': '无权访问此会议'})
+        
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({'success': False, 'message': '会议不存在'})
+        
+        # 获取参会者列表
+        participants = fuc.get_meeting_participants(meeting_id)
+        participants_list = [{
+            'user_name': p['user_name'],
+            'is_online': p['is_online'],
+            'is_camera_on': p['is_camera_on'],
+            'is_mic_on': p['is_mic_on'],
+            'is_screen_sharing': p['is_screen_sharing'],
+            'is_hand_raised': p['is_hand_raised'],
+            'joined_at': p['joined_at']
+        } for p in participants]
+        
+        # 获取录制列表
+        recordings = fuc.get_meeting_recordings(meeting_id)
+        recordings_list = [{
+            'id': r['id'],
+            'file_name': r['file_name'],
+            'duration': r['duration'],
+            'status': r['status'],
+            'started_at': r['started_at']
+        } for r in recordings]
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': meeting['id'],
+                'title': meeting['title'],
+                'creator_name': meeting['creator_name'],
+                'chat_type': meeting['chat_type'],
+                'chat_id': meeting['chat_id'],
+                'start_time': meeting['start_time'],
+                'end_time': meeting['end_time'],
+                'status': meeting['status'],
+                'is_recording': meeting['is_recording'],
+                'role': role,
+                'participants': participants_list,
+                'recordings': recordings_list
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取会议详情失败: {str(e)}'})
+
+
+@app.route('/update_meeting_status', methods=['POST'])
+def update_meeting_status():
+    """更新会议状态"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        meeting_id = data.get('meeting_id')
+        status = data.get('status')
+        
+        if not meeting_id or not status:
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        # 检查权限（只有创建者可以更新状态）
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({'success': False, 'message': '会议不存在'})
+        
+        if meeting['creator_name'] != session['username']:
+            return jsonify({'success': False, 'message': '无权更新此会议'})
+        
+        if fuc.update_meeting_status(meeting_id, status):
+            return jsonify({'success': True, 'message': '状态更新成功'})
+        else:
+            return jsonify({'success': False, 'message': '状态更新失败'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'更新会议状态失败: {str(e)}'})
+
+
+@app.route('/end_meeting', methods=['POST'])
+def end_meeting():
+    """结束会议"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        meeting_id = data.get('meeting_id')
+        
+        if not meeting_id:
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        # 检查权限（只有创建者可以结束会议）
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({'success': False, 'message': '会议不存在'})
+        
+        if meeting['creator_name'] != session['username']:
+            return jsonify({'success': False, 'message': '无权结束此会议'})
+        
+        if fuc.update_meeting_status(meeting_id, 'ended'):
+            # 通知所有参会者会议已结束
+            socketio.emit('meeting_ended', {'meeting_id': meeting_id}, room=f"meeting_{meeting_id}")
+            return jsonify({'success': True, 'message': '会议已结束'})
+        else:
+            return jsonify({'success': False, 'message': '结束会议失败'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'结束会议失败: {str(e)}'})
+
+
+@app.route('/join_meeting', methods=['POST'])
+def join_meeting():
+    """加入会议"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        meeting_id = data.get('meeting_id')
+        
+        if not meeting_id:
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({'success': False, 'message': '会议不存在'})
+        
+        # 检查会议状态
+        if meeting['status'] == 'ended':
+            return jsonify({'success': False, 'message': '会议已结束'})
+        
+        # 检查加入时间（会议开始前10分钟才能加入）
+        start_time = datetime.datetime.fromisoformat(meeting['start_time'].replace('Z', '+00:00').replace('+00:00', ''))
+        now = datetime.datetime.now()
+        time_diff = (start_time - now).total_seconds() / 60  # 分钟
+        
+        if meeting['status'] == 'scheduled' and time_diff > 10:
+            return jsonify({'success': False, 'message': f'会议将在 {int(time_diff)} 分钟后开始，请稍后再加入'})
+        
+        # 检查权限
+        has_permission, role = fuc.check_meeting_permission(meeting_id, session['username'])
+        if not has_permission:
+            # 自动添加为参与者（如果是聊天成员）
+            if meeting['chat_type'] == 'private':
+                friends = fuc.get_friends(session['username'])
+                if meeting['chat_id'] in friends or meeting['creator_name'] == session['username']:
+                    fuc.add_meeting_participant(meeting_id, session['username'])
+                else:
+                    return jsonify({'success': False, 'message': '无权加入此会议'})
+            elif meeting['chat_type'] == 'group':
+                if fuc.is_group_member(meeting['chat_id'], session['username']):
+                    fuc.add_meeting_participant(meeting_id, session['username'])
+                else:
+                    return jsonify({'success': False, 'message': '无权加入此会议'})
+        else:
+            # 更新参与者在线状态
+            fuc.update_participant_status(meeting_id, session['username'], is_online=1)
+        
+        # 如果会议是 scheduled 状态，更新为 active
+        if meeting['status'] == 'scheduled':
+            fuc.update_meeting_status(meeting_id, 'active')
+        
+        return jsonify({'success': True, 'message': '加入会议成功', 'role': role})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'加入会议失败: {str(e)}'})
+
+
+@app.route('/leave_meeting', methods=['POST'])
+def leave_meeting():
+    """离开会议"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        meeting_id = data.get('meeting_id')
+        
+        if not meeting_id:
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        if fuc.remove_meeting_participant(meeting_id, session['username']):
+            return jsonify({'success': True, 'message': '已离开会议'})
+        else:
+            return jsonify({'success': False, 'message': '离开会议失败'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'离开会议失败: {str(e)}'})
+
+
+@app.route('/get_meeting_participants/<int:meeting_id>')
+def get_meeting_participants_route(meeting_id):
+    """获取会议参与者列表"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        # 检查权限
+        has_permission, _ = fuc.check_meeting_permission(meeting_id, session['username'])
+        if not has_permission:
+            return jsonify({'success': False, 'message': '无权访问此会议'})
+        
+        participants = fuc.get_meeting_participants(meeting_id)
+        participants_list = [{
+            'user_name': p['user_name'],
+            'is_online': p['is_online'],
+            'is_camera_on': p['is_camera_on'],
+            'is_mic_on': p['is_mic_on'],
+            'is_screen_sharing': p['is_screen_sharing'],
+            'is_hand_raised': p['is_hand_raised'],
+            'joined_at': p['joined_at']
+        } for p in participants]
+        
+        return jsonify({'success': True, 'data': participants_list})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取参与者列表失败: {str(e)}'})
+
+
+@app.route('/control_participant', methods=['POST'])
+def control_participant():
+    """管理员控制参与者（关闭摄像头/麦克风）"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        meeting_id = data.get('meeting_id')
+        target_user = data.get('target_user')
+        control_type = data.get('control_type')  # 'mute_audio', 'disable_video', 'stop_screen_share'
+        
+        if not all([meeting_id, target_user, control_type]):
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        # 检查权限（只有创建者可以控制参与者）
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({'success': False, 'message': '会议不存在'})
+        
+        if meeting['creator_name'] != session['username']:
+            return jsonify({'success': False, 'message': '无权执行此操作'})
+        
+        # 更新参与者状态
+        if control_type == 'mute_audio':
+            fuc.update_participant_status(meeting_id, target_user, is_mic_on=0)
+        elif control_type == 'disable_video':
+            fuc.update_participant_status(meeting_id, target_user, is_camera_on=0)
+        elif control_type == 'stop_screen_share':
+            fuc.update_participant_status(meeting_id, target_user, is_screen_sharing=0)
+        
+        # 通过 Socket.IO 通知目标用户
+        socketio.emit('admin_control', {
+            'control_type': control_type,
+            'meeting_id': meeting_id
+        }, room=target_user)
+        
+        return jsonify({'success': True, 'message': '操作成功'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'操作失败: {str(e)}'})
+
+
+@app.route('/meeting_chat_messages/<int:meeting_id>')
+def get_meeting_chat_messages_route(meeting_id):
+    """获取会议聊天消息"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        # 检查权限
+        has_permission, _ = fuc.check_meeting_permission(meeting_id, session['username'])
+        if not has_permission:
+            return jsonify({'success': False, 'message': '无权访问此会议'})
+        
+        messages = fuc.get_meeting_chat_messages(meeting_id)
+        messages_list = [{
+            'id': m['id'],
+            'sender_name': m['sender_name'],
+            'message': m['message'],
+            'message_type': m['message_type'],
+            'sent_at': m['sent_at']
+        } for m in messages]
+        
+        return jsonify({'success': True, 'data': messages_list})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取聊天消息失败: {str(e)}'})
+
+
+@app.route('/meeting_page/<int:meeting_id>')
+def meeting_page(meeting_id):
+    """会议页面"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        # 先更新会议状态
+        update_meeting_statuses()
+        
+        # 检查权限
+        has_permission, role = fuc.check_meeting_permission(meeting_id, session['username'])
+        if not has_permission:
+            flash('无权访问此会议', 'error')
+            return redirect(url_for('main'))
+        
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            flash('会议不存在', 'error')
+            return redirect(url_for('main'))
+        
+        if meeting['status'] == 'ended':
+            flash('会议已结束', 'error')
+            return redirect(url_for('main'))
+        
+        return render_template('meeting.html', 
+                             meeting_id=meeting_id,
+                             meeting=meeting,
+                             user_info=session['user_info'],
+                             role=role)
+    except Exception as e:
+        flash(f'访问会议页面时发生错误: {str(e)}', 'error')
+        return redirect(url_for('main'))
+
+
+@app.route('/meeting_playback/<int:meeting_id>')
+def meeting_playback(meeting_id):
+    """会议回放页面"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        # 检查权限
+        has_permission, role = fuc.check_meeting_permission(meeting_id, session['username'])
+        if not has_permission:
+            flash('无权访问此会议', 'error')
+            return redirect(url_for('main'))
+        
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            flash('会议不存在', 'error')
+            return redirect(url_for('main'))
+        
+        # 获取录制列表
+        recordings = fuc.get_meeting_recordings(meeting_id)
+        
+        return render_template('meeting_playback.html',
+                             meeting_id=meeting_id,
+                             meeting=meeting,
+                             recordings=recordings,
+                             user_info=session['user_info'],
+                             role=role)
+    except Exception as e:
+        flash(f'访问回放页面时发生错误: {str(e)}', 'error')
+        return redirect(url_for('main'))
+
+
+@app.route('/video_meetings')
+def video_meetings():
+    """视频会议列表页面"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        # 先更新会议状态
+        update_meeting_statuses()
+        
+        # 获取用户的所有会议
+        meetings = fuc.get_user_meetings(session['username'])
+        
+        # 分类会议
+        upcoming_meetings = []
+        history_meetings = []
+        
+        for meeting in meetings:
+            if meeting['status'] == 'ended':
+                history_meetings.append(meeting)
+            else:
+                upcoming_meetings.append(meeting)
+        
+        return render_template('video_meetings.html',
+                             upcoming_meetings=upcoming_meetings,
+                             history_meetings=history_meetings,
+                             user_info=session['user_info'])
+    except Exception as e:
+        flash(f'获取会议列表时发生错误: {str(e)}', 'error')
+        return redirect(url_for('main'))
+
+
+# 录制相关 API
+RECORDINGS_STORAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'recordings')
+if not os.path.exists(RECORDINGS_STORAGE):
+    os.makedirs(RECORDINGS_STORAGE)
+
+
+@app.route('/start_recording', methods=['POST'])
+def start_recording():
+    """开始录制会议"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        meeting_id = data.get('meeting_id')
+        
+        if not meeting_id:
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        # 检查权限（只有创建者可以录制）
+        meeting = fuc.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({'success': False, 'message': '会议不存在'})
+        
+        if meeting['creator_name'] != session['username']:
+            return jsonify({'success': False, 'message': '无权录制此会议'})
+        
+        # 生成录制文件名
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"meeting_{meeting_id}_{timestamp}.webm"
+        file_path = os.path.join(RECORDINGS_STORAGE, file_name)
+        
+        # 创建录制记录
+        recording_id = fuc.start_meeting_recording(meeting_id, session['username'], file_path, file_name)
+        
+        if recording_id:
+            return jsonify({
+                'success': True,
+                'message': '开始录制',
+                'recording_id': recording_id,
+                'file_name': file_name
+            })
+        else:
+            return jsonify({'success': False, 'message': '开始录制失败'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'开始录制失败: {str(e)}'})
+
+
+@app.route('/stop_recording', methods=['POST'])
+def stop_recording():
+    """停止录制会议"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        data = request.json
+        meeting_id = data.get('meeting_id')
+        
+        if not meeting_id:
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        # 获取正在进行的录制
+        recordings = fuc.get_meeting_recordings(meeting_id)
+        active_recording = None
+        for r in recordings:
+            if r['status'] == 'recording':
+                active_recording = r
+                break
+        
+        if not active_recording:
+            return jsonify({'success': False, 'message': '没有正在进行的录制'})
+        
+        # 计算录制时长
+        started_at = datetime.datetime.fromisoformat(active_recording['started_at'])
+        now = datetime.datetime.now()
+        duration = int((now - started_at).total_seconds())
+        
+        # 获取文件大小
+        file_size = 0
+        if os.path.exists(active_recording['file_path']):
+            file_size = os.path.getsize(active_recording['file_path'])
+        
+        # 停止录制
+        if fuc.stop_meeting_recording(active_recording['id'], duration, file_size):
+            return jsonify({
+                'success': True,
+                'message': '录制已停止',
+                'duration': duration,
+                'file_size': file_size
+            })
+        else:
+            return jsonify({'success': False, 'message': '停止录制失败'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'停止录制失败: {str(e)}'})
+
+
+@app.route('/upload_recording_chunk', methods=['POST'])
+def upload_recording_chunk():
+    """上传录制片段"""
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': '未登录'})
+    
+    try:
+        meeting_id = request.form.get('meeting_id')
+        chunk = request.files.get('chunk')
+        
+        if not meeting_id or not chunk:
+            return jsonify({'success': False, 'message': '参数不完整'})
+        
+        # 获取正在进行的录制
+        recordings = fuc.get_meeting_recordings(meeting_id)
+        active_recording = None
+        for r in recordings:
+            if r['status'] == 'recording':
+                active_recording = r
+                break
+        
+        if not active_recording:
+            return jsonify({'success': False, 'message': '没有正在进行的录制'})
+        
+        # 追加写入文件
+        file_path = active_recording['file_path']
+        with open(file_path, 'ab') as f:
+            f.write(chunk.read())
+        
+        return jsonify({'success': True, 'message': '片段上传成功'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'上传片段失败: {str(e)}'})
+
+
+@app.route('/playback/<int:recording_id>')
+def playback(recording_id):
+    """播放录制文件"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        recording = fuc.get_recording_by_id(recording_id)
+        
+        if not recording:
+            flash('录制文件不存在', 'error')
+            return redirect(url_for('main'))
+        
+        # 检查权限
+        has_permission, role = fuc.check_meeting_permission(recording['meeting_id'], session['username'])
+        
+        if not has_permission:
+            flash('无权访问此录制', 'error')
+            return redirect(url_for('main'))
+        
+        # 使用绝对路径
+        file_path = recording['file_path']
+        if not os.path.isabs(file_path):
+            file_path = os.path.join(app.root_path, file_path)
+        
+        if not os.path.exists(file_path):
+            flash('录制文件不存在', 'error')
+            return redirect(url_for('main'))
+        
+        # 使用 send_from_directory 提供更好的流式支持
+        directory = os.path.dirname(file_path)
+        filename = os.path.basename(file_path)
+        return send_from_directory(directory, filename)
+    except Exception as e:
+        print(f"[DEBUG] playback error: {str(e)}")
+        flash(f'播放录制失败: {str(e)}', 'error')
+        return redirect(url_for('main'))
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """返回 favicon"""
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.svg')
+
+
 if __name__ == '__main__':
+    # 启动后台定时任务
+    start_background_tasks()
+    
     APP_IP = os.getenv('APP_IP', '127.0.0.1')  # 默认值
     APP_PORT = int(os.getenv('APP_PORT', 5000)) # 默认值
     DEBUG_MODE = os.getenv('DEBUG_MODE', 'False').lower() == 'true'  # 从环境变量读取调试模式

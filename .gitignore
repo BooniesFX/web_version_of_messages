@@ -56,3 +56,18 @@ ehthumbs.db
 Desktop.ini
 *.stackdump
 
+# Content of Data Directory
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+*.svg
+
+# Static folder contents (keep folder structure, ignore contents)
+static/recordings/*
+!static/recordings/.gitkeep
+static/shared_files/*
+!static/shared_files/.gitkeep

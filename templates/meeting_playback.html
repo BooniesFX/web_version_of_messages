@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ meeting.title }} - 会议回放</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .playback-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .video-container {
+            background: #2a2a2a;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .video-container video {
+            width: 100%;
+            max-height: 600px;
+        }
+        
+        .chat-container {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: #3a3a3a;
+            border-radius: 8px;
+        }
+        
+        .chat-message.system {
+            background: transparent;
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .chat-message .sender {
+            font-weight: 500;
+            font-size: 12px;
+            color: #0d6efd;
+            margin-bottom: 4px;
+        }
+        
+        .chat-message .content {
+            font-size: 14px;
+        }
+        
+        .recording-list {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .recording-item {
+            padding: 15px;
+            border-bottom: 1px solid #3a3a3a;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .recording-item:hover {
+            background: #3a3a3a;
+        }
+        
+        .recording-item:last-child {
+            border-bottom: none;
+        }
+        
+        .recording-item.active {
+            background: #0d6efd;
+        }
+        
+        .btn-back {
+            background: #3a3a3a;
+            color: #fff;
+            border: none;
+        }
+        
+        .btn-back:hover {
+            background: #4a4a4a;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="playback-container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-play-circle"></i> {{ meeting.title }} - 会议回放</h2>
+            <a href="/" class="btn btn-back"><i class="bi bi-arrow-left"></i> 返回主页</a>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="video-container">
+                    <video id="playbackVideo" controls>
+                        <p>您的浏览器不支持视频播放</p>
+                    </video>
+                </div>
+                
+                <div class="recording-list">
+                    <h5><i class="bi bi-collection-play"></i> 录制列表</h5>
+                    {% if recordings %}
+                        {% for recording in recordings %}
+                            {% if recording.status == 'completed' %}
+                            <div class="recording-item" onclick="playRecording({{ recording.id }})" data-recording-id="{{ recording.id }}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-camera-video"></i> 录制 {{ loop.index }}
+                                        <div class="small text-muted">
+                                            {{ recording.started_at }} | 
+                                            时长: {{ recording.duration // 60 }}分{{ recording.duration % 60 }}秒
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-primary">
+                                        <i class="bi bi-play-fill"></i> 播放
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-camera-video-off"></i> 暂无录制文件
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="chat-container">
+                    <h5><i class="bi bi-chat-text"></i> 会议聊天记录</h5>
+                    <div id="chatMessages">
+                        <!-- 聊天记录将在这里加载 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        const meetingId = {{ meeting_id }};
+        
+        // 加载聊天记录
+        function loadChatMessages() {
+            $.get(`/meeting_chat_messages/${meetingId}`, function(data) {
+                if (data.success) {
+                    displayChatMessages(data.data);
+                }
+            });
+        }
+        
+        // 显示聊天记录
+        function displayChatMessages(messages) {
+            const container = $('#chatMessages');
+            let html = '';
+            
+            if (messages.length > 0) {
+                messages.forEach(function(msg) {
+                    if (msg.message_type === 'system') {
+                        html += `<div class="chat-message system">${escapeHtml(msg.message)}</div>`;
+                    } else {
+                        html += `<div class="chat-message">
+                            <div class="sender">${escapeHtml(msg.sender_name)}</div>
+                            <div class="content">${escapeHtml(msg.message)}</div>
+                        </div>`;
+                    }
+                });
+            } else {
+                html = '<div class="text-center text-muted mt-3"><i class="bi bi-chat-square-text"></i> 暂无聊天记录</div>';
+            }
+            
+            container.html(html);
+        }
+        
+        // 播放录制
+        function playRecording(recordingId) {
+            const video = document.getElementById('playbackVideo');
+            video.src = `/playback/${recordingId}`;
+            video.play();
+            
+            // 更新活跃状态
+            $('.recording-item').removeClass('active');
+            $(`.recording-item[data-recording-id="${recordingId}"]`).addClass('active');
+        }
+        
+        // 辅助函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 页面加载时
+        $(document).ready(function() {
+            loadChatMessages();
+            
+            // 如果有录制，自动播放第一个
+            const firstRecording = $('.recording-item').first();
+            if (firstRecording.length) {
+                firstRecording.click();
+            }
+        });
+    </script>
+</body>
+</html>

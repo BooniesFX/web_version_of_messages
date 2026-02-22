@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ meeting.title }} - 视频会议</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .meeting-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* 视频网格区域 */
+        .video-grid {
+            flex: 1;
+            display: grid;
+            gap: 10px;
+            padding: 10px;
+            overflow: auto;
+            align-content: center;
+            justify-content: center;
+        }
+        
+        .video-grid.grid-1 {
+            grid-template-columns: 1fr;
+        }
+        
+        .video-grid.grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .video-grid.grid-3,
+        .video-grid.grid-4 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .video-grid.grid-5,
+        .video-grid.grid-6 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .video-grid.grid-7,
+        .video-grid.grid-8,
+        .video-grid.grid-9 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .video-item {
+            position: relative;
+            background: #2a2a2a;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            min-height: 150px;
+        }
+        
+        .video-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .video-item.screen-sharing {
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+        
+        .video-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .participant-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .participant-status {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .status-icon.muted {
+            background: #dc3545;
+        }
+        
+        .status-icon.hand-raised {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        /* 控制栏 */
+        .control-bar {
+            background: #2a2a2a;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: #3a3a3a;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .control-btn:hover {
+            background: #4a4a4a;
+        }
+        
+        .control-btn.active {
+            background: #0d6efd;
+        }
+        
+        .control-btn.danger {
+            background: #dc3545;
+        }
+        
+        .control-btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 侧边栏 */
+        .sidebar {
+            position: fixed;
+            right: -350px;
+            top: 0;
+            width: 350px;
+            height: 100vh;
+            background: #2a2a2a;
+            transition: right 0.3s;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar.open {
+            right: 0;
+        }
+        
+        .sidebar-header {
+            padding: 15px;
+            border-bottom: 1px solid #3a3a3a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow: auto;
+            padding: 15px;
+        }
+        
+        /* 聊天区域 */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: #3a3a3a;
+            border-radius: 8px;
+        }
+        
+        .chat-message.system {
+            background: transparent;
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .chat-message .sender {
+            font-weight: 500;
+            font-size: 12px;
+            color: #0d6efd;
+            margin-bottom: 4px;
+        }
+        
+        .chat-message .content {
+            font-size: 14px;
+        }
+        
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 20px;
+            background: #3a3a3a;
+            color: #fff;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            background: #4a4a4a;
+        }
+        
+        /* 参与者列表 */
+        .participant-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        
+        .participant-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #0d6efd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: 500;
+        }
+        
+        .participant-info {
+            flex: 1;
+        }
+        
+        .participant-name-list {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .participant-role {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .participant-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .participant-actions button {
+            background: transparent;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        /* 录制指示器 */
+        .recording-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: rgba(220, 53, 69, 0.9);
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 100;
+        }
+        
+        .recording-dot {
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* 全屏模式 */
+        .meeting-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+        }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .video-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .video-item.screen-sharing {
+                grid-column: span 1;
+                grid-row: span 1;
+            }
+            
+            .control-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+            
+            .sidebar {
+                width: 100%;
+                right: -100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="meeting-container" id="meetingContainer">
+        <!-- 录制指示器 -->
+        <div class="recording-indicator" id="recordingIndicator" style="display: none;">
+            <div class="recording-dot"></div>
+            <span>录制中</span>
+        </div>
+        
+        <!-- 视频网格 -->
+        <div class="video-grid grid-1" id="videoGrid">
+            <!-- 本地视频 -->
+            <div class="video-item" id="localVideoContainer">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <div class="video-overlay">
+                    <span class="participant-name">我 ({{ user_info.name }})</span>
+                    <div class="participant-status" id="localStatus">
+                        <span class="status-icon muted" id="localMicIcon" style="display: none;">
+                            <i class="bi bi-mic-mute-fill"></i>
+                        </span>
+                        <span class="status-icon hand-raised" id="localHandIcon" style="display: none;">
+                            <i class="bi bi-hand-index-thumb-fill"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 控制栏 -->
+        <div class="control-bar">
+            <button class="control-btn" id="micBtn" title="麦克风">
+                <i class="bi bi-mic-fill"></i>
+            </button>
+            <button class="control-btn" id="cameraBtn" title="摄像头">
+                <i class="bi bi-camera-video-fill"></i>
+            </button>
+            <button class="control-btn" id="screenShareBtn" title="屏幕共享">
+                <i class="bi bi-display"></i>
+            </button>
+            {% if role == 'creator' %}
+            <button class="control-btn" id="recordBtn" title="录制">
+                <i class="bi bi-record-circle"></i>
+            </button>
+            {% endif %}
+            <button class="control-btn" id="handBtn" title="举手">
+                <i class="bi bi-hand-index-thumb"></i>
+            </button>
+            <button class="control-btn" id="chatBtn" title="聊天">
+                <i class="bi bi-chat-text"></i>
+            </button>
+            <button class="control-btn" id="participantsBtn" title="参与者">
+                <i class="bi bi-people"></i>
+            </button>
+            <button class="control-btn" id="fullscreenBtn" title="全屏">
+                <i class="bi bi-fullscreen"></i>
+            </button>
+            <button class="control-btn danger" id="leaveBtn" title="离开会议">
+                <i class="bi bi-telephone-x-fill"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- 侧边栏 - 聊天 -->
+    <div class="sidebar" id="chatSidebar">
+        <div class="sidebar-header">
+            <h5 class="m-0">会议聊天</h5>
+            <button class="btn btn-sm btn-outline-light" id="closeChatBtn">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="sidebar-content">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-area">
+                <input type="text" class="chat-input" id="chatInput" placeholder="输入消息...">
+                <button class="control-btn" id="sendChatBtn">
+                    <i class="bi bi-send"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 侧边栏 - 参与者 -->
+    <div class="sidebar" id="participantsSidebar">
+        <div class="sidebar-header">
+            <h5 class="m-0">参与者</h5>
+            <button class="btn btn-sm btn-outline-light" id="closeParticipantsBtn">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="sidebar-content" id="participantsList">
+            <!-- 参与者列表将在这里动态生成 -->
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // CSRF Token 配置
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        // 全局变量
+        const meetingId = {{ meeting_id }};
+        const username = "{{ user_info.name }}";
+        const role = "{{ role }}";
+        const socket = io();
+        
+        // 辅助函数：发送带 CSRF 的 POST 请求
+        async function postWithCSRF(url, data) {
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(data)
+            });
+        }
+        
+        let localStream = null;
+        let screenStream = null;
+        let isMicOn = true;
+        let isCameraOn = true;
+        let isScreenSharing = false;
+        let isHandRaised = false;
+        let isRecording = false;
+        let isChatOpen = false;
+        let isParticipantsOpen = false;
+        
+        // WebRTC 相关
+        const peers = {};
+        const remoteStreams = {};
+        
+        // 初始化
+        async function init() {
+            try {
+                // 获取本地媒体流
+                await getLocalStream();
+                
+                // 加入会议房间
+                socket.emit('join_meeting_room', { meeting_id: meetingId });
+                
+                // 加载历史聊天消息
+                loadChatHistory();
+                
+                // 设置事件监听
+                setupSocketListeners();
+                setupUIListeners();
+                
+            } catch (err) {
+                console.error('初始化失败:', err);
+                alert('无法访问摄像头/麦克风，请检查权限设置');
+            }
+        }
+        
+        // 获取本地媒体流
+        async function getLocalStream() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                const localVideo = document.getElementById('localVideo');
+                localVideo.srcObject = localStream;
+                
+                // 更新UI状态
+                updateMediaButtons();
+                
+            } catch (err) {
+                console.error('获取媒体流失败:', err);
+                // 尝试仅获取音频
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({
+                        video: false,
+                        audio: true
+                    });
+                    isCameraOn = false;
+                    updateMediaButtons();
+                } catch (audioErr) {
+                    console.error('获取音频流也失败:', audioErr);
+                    throw audioErr;
+                }
+            }
+        }
+        
+        // 设置 Socket.IO 事件监听
+        function setupSocketListeners() {
+            // 新参与者加入
+            socket.on('participant_joined', (data) => {
+                console.log('参与者加入:', data.user_name);
+                createPeerConnection(data.user_name);
+            });
+            
+            // 参与者离开
+            socket.on('participant_left', (data) => {
+                console.log('参与者离开:', data.user_name);
+                removeRemoteVideo(data.user_name);
+                if (peers[data.user_name]) {
+                    peers[data.user_name].close();
+                    delete peers[data.user_name];
+                }
+            });
+            
+            // 现有参与者列表
+            socket.on('existing_participants', (data) => {
+                console.log('现有参与者:', data.participants);
+                data.participants.forEach(userName => {
+                    createPeerConnection(userName);
+                });
+            });
+            
+            // WebRTC 信令
+            socket.on('webrtc_offer', async (data) => {
+                await handleOffer(data.from_user, data.offer);
+            });
+            
+            socket.on('webrtc_answer', async (data) => {
+                await handleAnswer(data.from_user, data.answer);
+            });
+            
+            socket.on('webrtc_ice_candidate', async (data) => {
+                await handleIceCandidate(data.from_user, data.candidate);
+            });
+            
+            // 媒体状态变化
+            socket.on('participant_media_status', (data) => {
+                updateParticipantMediaStatus(data.user_name, data.is_camera_on, data.is_mic_on);
+            });
+            
+            // 屏幕共享
+            socket.on('screen_share_started', (data) => {
+                showScreenSharingIndicator(data.user_name);
+            });
+            
+            socket.on('screen_share_stopped', (data) => {
+                hideScreenSharingIndicator(data.user_name);
+            });
+            
+            // 举手
+            socket.on('hand_raised', (data) => {
+                showHandRaised(data.user_name);
+            });
+            
+            socket.on('hand_lowered', (data) => {
+                hideHandRaised(data.user_name);
+            });
+            
+            // 聊天消息
+            socket.on('new_chat_message', (data) => {
+                addChatMessage(data);
+            });
+            
+            // 管理员控制
+            socket.on('admin_muted_audio', () => {
+                muteLocalAudio();
+                alert('管理员已关闭您的麦克风');
+            });
+            
+            socket.on('admin_disabled_video', () => {
+                disableLocalVideo();
+                alert('管理员已关闭您的摄像头');
+            });
+            
+            socket.on('admin_stopped_screen_share', () => {
+                stopScreenSharing();
+                alert('管理员已停止您的屏幕共享');
+            });
+            
+            // 会议结束
+            socket.on('meeting_ended', () => {
+                alert('会议已结束');
+                leaveMeeting();
+            });
+        }
+        
+        // 创建 WebRTC 连接
+        async function createPeerConnection(targetUser) {
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                });
+                
+                peers[targetUser] = pc;
+                
+                // 添加本地流
+                if (localStream) {
+                    localStream.getTracks().forEach(track => {
+                        pc.addTrack(track, localStream);
+                    });
+                }
+                
+                // 处理远程流
+                pc.ontrack = (event) => {
+                    const [remoteStream] = event.streams;
+                    addRemoteVideo(targetUser, remoteStream);
+                };
+                
+                // 处理 ICE candidate
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('webrtc_ice_candidate', {
+                            target_user: targetUser,
+                            candidate: event.candidate,
+                            meeting_id: meetingId
+                        });
+                    }
+                };
+                
+                // 创建并发送 offer
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                socket.emit('webrtc_offer', {
+                    target_user: targetUser,
+                    offer: offer,
+                    meeting_id: meetingId
+                });
+                
+            } catch (err) {
+                console.error('创建连接失败:', err);
+            }
+        }
+        
+        // 处理 offer
+        async function handleOffer(fromUser, offer) {
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                });
+                
+                peers[fromUser] = pc;
+                
+                // 添加本地流
+                if (localStream) {
+                    localStream.getTracks().forEach(track => {
+                        pc.addTrack(track, localStream);
+                    });
+                }
+                
+                // 处理远程流
+                pc.ontrack = (event) => {
+                    const [remoteStream] = event.streams;
+                    addRemoteVideo(fromUser, remoteStream);
+                };
+                
+                // 处理 ICE candidate
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('webrtc_ice_candidate', {
+                            target_user: fromUser,
+                            candidate: event.candidate,
+                            meeting_id: meetingId
+                        });
+                    }
+                };
+                
+                await pc.setRemoteDescription(offer);
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                
+                socket.emit('webrtc_answer', {
+                    target_user: fromUser,
+                    answer: answer,
+                    meeting_id: meetingId
+                });
+                
+            } catch (err) {
+                console.error('处理 offer 失败:', err);
+            }
+        }
+        
+        // 处理 answer
+        async function handleAnswer(fromUser, answer) {
+            try {
+                const pc = peers[fromUser];
+                if (pc) {
+                    await pc.setRemoteDescription(answer);
+                }
+            } catch (err) {
+                console.error('处理 answer 失败:', err);
+            }
+        }
+        
+        // 处理 ICE candidate
+        async function handleIceCandidate(fromUser, candidate) {
+            try {
+                const pc = peers[fromUser];
+                if (pc) {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            } catch (err) {
+                console.error('处理 ICE candidate 失败:', err);
+            }
+        }
+        
+        // 添加远程视频
+        function addRemoteVideo(userName, stream) {
+            const videoGrid = document.getElementById('videoGrid');
+            
+            // 检查是否已存在
+            let videoItem = document.getElementById(`video-${userName}`);
+            if (!videoItem) {
+                videoItem = document.createElement('div');
+                videoItem.className = 'video-item';
+                videoItem.id = `video-${userName}`;
+                videoItem.innerHTML = `
+                    <video autoplay playsinline></video>
+                    <div class="video-overlay">
+                        <span class="participant-name">${userName}</span>
+                        <div class="participant-status">
+                            <span class="status-icon muted" style="display: none;">
+                                <i class="bi bi-mic-mute-fill"></i>
+                            </span>
+                            <span class="status-icon hand-raised" style="display: none;">
+                                <i class="bi bi-hand-index-thumb-fill"></i>
+                            </span>
+                        </div>
+                    </div>
+                `;
+                videoGrid.appendChild(videoItem);
+                updateVideoGridLayout();
+            }
+            
+            const video = videoItem.querySelector('video');
+            video.srcObject = stream;
+        }
+        
+        // 移除远程视频
+        function removeRemoteVideo(userName) {
+            const videoItem = document.getElementById(`video-${userName}`);
+            if (videoItem) {
+                videoItem.remove();
+                updateVideoGridLayout();
+            }
+        }
+        
+        // 更新视频网格布局
+        function updateVideoGridLayout() {
+            const videoGrid = document.getElementById('videoGrid');
+            const videoCount = videoGrid.children.length;
+            videoGrid.className = `video-grid grid-${Math.min(videoCount, 9)}`;
+        }
+        
+        // 设置 UI 事件监听
+        function setupUIListeners() {
+            // 麦克风按钮
+            document.getElementById('micBtn').addEventListener('click', toggleMic);
+            
+            // 摄像头按钮
+            document.getElementById('cameraBtn').addEventListener('click', toggleCamera);
+            
+            // 屏幕共享按钮
+            document.getElementById('screenShareBtn').addEventListener('click', toggleScreenShare);
+            
+            // 录制按钮
+            const recordBtn = document.getElementById('recordBtn');
+            if (recordBtn) {
+                recordBtn.addEventListener('click', toggleRecording);
+            }
+            
+            // 举手按钮
+            document.getElementById('handBtn').addEventListener('click', toggleHand);
+            
+            // 聊天按钮
+            document.getElementById('chatBtn').addEventListener('click', toggleChat);
+            
+            // 参与者按钮
+            document.getElementById('participantsBtn').addEventListener('click', toggleParticipants);
+            
+            // 全屏按钮
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+            
+            // 离开按钮
+            document.getElementById('leaveBtn').addEventListener('click', leaveMeeting);
+            
+            // 关闭聊天按钮
+            document.getElementById('closeChatBtn').addEventListener('click', closeChat);
+            
+            // 关闭参与者按钮
+            document.getElementById('closeParticipantsBtn').addEventListener('click', closeParticipants);
+            
+            // 发送聊天消息
+            document.getElementById('sendChatBtn').addEventListener('click', sendChatMessage);
+            document.getElementById('chatInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendChatMessage();
+            });
+            
+            // 页面关闭前离开会议
+            window.addEventListener('beforeunload', () => {
+                socket.emit('leave_meeting_room', { meeting_id: meetingId });
+            });
+        }
+        
+        // 切换麦克风
+        function toggleMic() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    isMicOn = audioTrack.enabled;
+                    updateMediaButtons();
+                    
+                    // 通知其他用户
+                    socket.emit('media_status_change', {
+                        meeting_id: meetingId,
+                        is_mic_on: isMicOn
+                    });
+                }
+            }
+        }
+        
+        // 切换摄像头
+        function toggleCamera() {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    isCameraOn = videoTrack.enabled;
+                    updateMediaButtons();
+                    
+                    // 通知其他用户
+                    socket.emit('media_status_change', {
+                        meeting_id: meetingId,
+                        is_camera_on: isCameraOn
+                    });
+                }
+            }
+        }
+        
+        // 更新媒体按钮状态
+        function updateMediaButtons() {
+            const micBtn = document.getElementById('micBtn');
+            const cameraBtn = document.getElementById('cameraBtn');
+            const localMicIcon = document.getElementById('localMicIcon');
+            
+            if (isMicOn) {
+                micBtn.innerHTML = '<i class="bi bi-mic-fill"></i>';
+                micBtn.classList.remove('active');
+                localMicIcon.style.display = 'none';
+            } else {
+                micBtn.innerHTML = '<i class="bi bi-mic-mute-fill"></i>';
+                micBtn.classList.add('active');
+                localMicIcon.style.display = 'flex';
+            }
+            
+            if (isCameraOn) {
+                cameraBtn.innerHTML = '<i class="bi bi-camera-video-fill"></i>';
+                cameraBtn.classList.remove('active');
+            } else {
+                cameraBtn.innerHTML = '<i class="bi bi-camera-video-off-fill"></i>';
+                cameraBtn.classList.add('active');
+            }
+        }
+        
+        // 切换屏幕共享
+        async function toggleScreenShare() {
+            if (isScreenSharing) {
+                stopScreenSharing();
+            } else {
+                await startScreenSharing();
+            }
+        }
+        
+        // 开始屏幕共享
+        async function startScreenSharing() {
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                // 替换视频轨道
+                const videoTrack = screenStream.getVideoTracks()[0];
+                
+                Object.values(peers).forEach(pc => {
+                    const sender = pc.getSenders().find(s => 
+                        s.track && s.track.kind === 'video'
+                    );
+                    if (sender) {
+                        sender.replaceTrack(videoTrack);
+                    }
+                });
+                
+                // 更新本地视频显示
+                const localVideo = document.getElementById('localVideo');
+                localVideo.srcObject = screenStream;
+                
+                // 监听屏幕共享结束
+                videoTrack.onended = () => {
+                    stopScreenSharing();
+                };
+                
+                isScreenSharing = true;
+                document.getElementById('screenShareBtn').classList.add('active');
+                document.getElementById('localVideoContainer').classList.add('screen-sharing');
+                
+                // 通知其他用户
+                socket.emit('screen_share_start', { meeting_id: meetingId });
+                
+            } catch (err) {
+                console.error('屏幕共享失败:', err);
+                alert('无法开始屏幕共享');
+            }
+        }
+        
+        // 停止屏幕共享
+        function stopScreenSharing() {
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+            
+            // 恢复摄像头视频
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    Object.values(peers).forEach(pc => {
+                        const sender = pc.getSenders().find(s => 
+                            s.track && s.track.kind === 'video'
+                        );
+                        if (sender) {
+                            sender.replaceTrack(videoTrack);
+                        }
+                    });
+                    
+                    const localVideo = document.getElementById('localVideo');
+                    localVideo.srcObject = localStream;
+                }
+            }
+            
+            isScreenSharing = false;
+            document.getElementById('screenShareBtn').classList.remove('active');
+            document.getElementById('localVideoContainer').classList.remove('screen-sharing');
+            
+            // 通知其他用户
+            socket.emit('screen_share_stop', { meeting_id: meetingId });
+        }
+        
+        // 切换录制
+        function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+        
+        // 录制相关变量
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordingId = null;
+        
+        // 开始录制
+        async function startRecording() {
+            try {
+                // 先通知后端开始录制
+                const response = await postWithCSRF('/start_recording', { meeting_id: meetingId });
+                const data = await response.json();
+                
+                if (!data.success) {
+                    alert(data.message);
+                    return;
+                }
+                
+                recordingId = data.recording_id;
+                
+                // 创建录制流（合并本地流和所有远程流）
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 1280;
+                canvas.height = 720;
+                
+                // 获取所有视频元素
+                const videoElements = document.querySelectorAll('video');
+                
+                // 创建 canvas 捕获流
+                const canvasStream = canvas.captureStream(30); // 30fps
+                
+                // 收集所有音频轨道
+                const allAudioTracks = [];
+                
+                // 添加本地音频
+                if (localStream && localStream.getAudioTracks().length > 0) {
+                    allAudioTracks.push(...localStream.getAudioTracks());
+                    console.log('[录制] 已添加本地音频轨道:', localStream.getAudioTracks().length);
+                }
+                
+                // 添加所有远程参与者的音频
+                videoElements.forEach((video, index) => {
+                    if (video.id !== 'localVideo' && video.srcObject) {
+                        const tracks = video.srcObject.getAudioTracks();
+                        if (tracks.length > 0) {
+                            allAudioTracks.push(...tracks);
+                            console.log(`[录制] 已添加远程参与者 ${index} 的音频轨道:`, tracks.length);
+                        }
+                    }
+                });
+                
+                console.log('[录制] 总共音频轨道数:', allAudioTracks.length);
+                
+                // 合并视频和音频
+                const combinedStream = new MediaStream([
+                    ...canvasStream.getVideoTracks(),
+                    ...allAudioTracks
+                ]);
+                
+                // 检查支持的编码格式
+                let mimeType = 'video/webm;codecs=vp9,opus';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'video/webm;codecs=vp8,opus';
+                    if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = 'video/webm';
+                        if (!MediaRecorder.isTypeSupported(mimeType)) {
+                            mimeType = 'video/mp4';
+                        }
+                    }
+                }
+                console.log('[录制] 使用编码格式:', mimeType);
+                
+                // 创建 MediaRecorder
+                mediaRecorder = new MediaRecorder(combinedStream, {
+                    mimeType: mimeType
+                });
+                
+                recordedChunks = [];
+                
+                mediaRecorder.ondataavailable = function(event) {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                        // 实时上传片段
+                        uploadRecordingChunk(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = function() {
+                    console.log('录制已停止');
+                };
+                
+                mediaRecorder.onerror = function(event) {
+                    console.error('MediaRecorder 错误:', event.error);
+                };
+                
+                // 开始录制，每1秒收集一次数据
+                mediaRecorder.start(1000);
+                
+                isRecording = true;
+                document.getElementById('recordBtn').classList.add('active');
+                document.getElementById('recordingIndicator').style.display = 'flex';
+                
+                // 开始绘制 canvas
+                drawRecordingCanvas(canvas, ctx, videoElements);
+                
+                console.log('[录制] 录制已开始');
+                
+            } catch (err) {
+                console.error('开始录制失败:', err);
+                alert('开始录制失败: ' + err.message);
+            }
+        }
+        
+        // 绘制录制画布
+        function drawRecordingCanvas(canvas, ctx, videoElements) {
+            if (!isRecording) return;
+            
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 简单布局：最多显示4个视频
+            const cols = Math.min(videoElements.length, 2);
+            const rows = Math.ceil(videoElements.length / 2);
+            const cellWidth = canvas.width / cols;
+            const cellHeight = canvas.height / rows;
+            
+            videoElements.forEach((video, index) => {
+                const col = index % cols;
+                const row = Math.floor(index / cols);
+                const x = col * cellWidth;
+                const y = row * cellHeight;
+                
+                if (video.videoWidth > 0) {
+                    ctx.drawImage(video, x, y, cellWidth, cellHeight);
+                }
+                
+                // 绘制用户名
+                const userName = video.id === 'localVideo' ? username : 
+                                video.closest('.remote-video-container')?.querySelector('.participant-name')?.textContent || '';
+                if (userName) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(x + 10, y + 10, ctx.measureText(userName).width + 20, 30);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '16px Arial';
+                    ctx.fillText(userName, x + 20, y + 30);
+                }
+            });
+            
+            // 绘制录制指示器
+            if (isRecording) {
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(canvas.width - 30, 30, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px Arial';
+                ctx.fillText('REC', canvas.width - 70, 35);
+            }
+            
+            requestAnimationFrame(() => drawRecordingCanvas(canvas, ctx, videoElements));
+        }
+        
+        // 上传录制片段
+        async function uploadRecordingChunk(blob) {
+            try {
+                const formData = new FormData();
+                formData.append('meeting_id', meetingId);
+                formData.append('chunk', blob, 'chunk.webm');
+                
+                await fetch('/upload_recording_chunk', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: formData
+                });
+            } catch (err) {
+                console.error('上传录制片段失败:', err);
+            }
+        }
+        
+        // 停止录制
+        async function stopRecording() {
+            try {
+                // 停止 MediaRecorder
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+                
+                // 通知后端停止录制
+                const response = await postWithCSRF('/stop_recording', { meeting_id: meetingId });
+                const data = await response.json();
+                
+                if (data.success) {
+                    isRecording = false;
+                    recordingId = null;
+                    document.getElementById('recordBtn').classList.remove('active');
+                    document.getElementById('recordingIndicator').style.display = 'none';
+                    alert('录制已保存！');
+                }
+            } catch (err) {
+                console.error('停止录制失败:', err);
+            }
+        }
+        
+        // 切换举手
+        function toggleHand() {
+            if (isHandRaised) {
+                socket.emit('lower_hand', { meeting_id: meetingId });
+                isHandRaised = false;
+                document.getElementById('handBtn').classList.remove('active');
+                document.getElementById('localHandIcon').style.display = 'none';
+            } else {
+                socket.emit('raise_hand', { meeting_id: meetingId });
+                isHandRaised = true;
+                document.getElementById('handBtn').classList.add('active');
+                document.getElementById('localHandIcon').style.display = 'flex';
+            }
+        }
+        
+        // 显示举手
+        function showHandRaised(userName) {
+            const videoItem = document.getElementById(`video-${userName}`);
+            if (videoItem) {
+                const handIcon = videoItem.querySelector('.status-icon.hand-raised');
+                if (handIcon) handIcon.style.display = 'flex';
+            }
+        }
+        
+        // 隐藏举手
+        function hideHandRaised(userName) {
+            const videoItem = document.getElementById(`video-${userName}`);
+            if (videoItem) {
+                const handIcon = videoItem.querySelector('.status-icon.hand-raised');
+                if (handIcon) handIcon.style.display = 'none';
+            }
+        }
+        
+        // 切换聊天面板
+        function toggleChat() {
+            isChatOpen = !isChatOpen;
+            const sidebar = document.getElementById('chatSidebar');
+            if (isChatOpen) {
+                sidebar.classList.add('open');
+                closeParticipants();
+            } else {
+                sidebar.classList.remove('open');
+            }
+        }
+        
+        // 关闭聊天
+        function closeChat() {
+            isChatOpen = false;
+            document.getElementById('chatSidebar').classList.remove('open');
+        }
+        
+        // 切换参与者面板
+        function toggleParticipants() {
+            isParticipantsOpen = !isParticipantsOpen;
+            const sidebar = document.getElementById('participantsSidebar');
+            if (isParticipantsOpen) {
+                sidebar.classList.add('open');
+                loadParticipants();
+                closeChat();
+            } else {
+                sidebar.classList.remove('open');
+            }
+        }
+        
+        // 关闭参与者面板
+        function closeParticipants() {
+            isParticipantsOpen = false;
+            document.getElementById('participantsSidebar').classList.remove('open');
+        }
+        
+        // 加载参与者列表
+        async function loadParticipants() {
+            try {
+                const response = await fetch(`/get_meeting_participants/${meetingId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderParticipants(data.data);
+                }
+            } catch (err) {
+                console.error('加载参与者失败:', err);
+            }
+        }
+        
+        // 渲染参与者列表
+        function renderParticipants(participants) {
+            const container = document.getElementById('participantsList');
+            container.innerHTML = '';
+            
+            participants.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'participant-item';
+                
+                const isCreator = p.user_name === "{{ meeting.creator_name }}";
+                const isSelf = p.user_name === username;
+                
+                let actionsHtml = '';
+                if (role === 'creator' && !isSelf) {
+                    actionsHtml = `
+                        <div class="participant-actions">
+                            <button onclick="controlParticipant('${p.user_name}', 'mute_audio')" title="静音">
+                                <i class="bi bi-mic-mute"></i>
+                            </button>
+                            <button onclick="controlParticipant('${p.user_name}', 'disable_video')" title="关闭摄像头">
+                                <i class="bi bi-camera-video-off"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                item.innerHTML = `
+                    <div class="participant-avatar">${p.user_name.charAt(0).toUpperCase()}</div>
+                    <div class="participant-info">
+                        <div class="participant-name-list">${p.user_name} ${isSelf ? '(我)' : ''}</div>
+                        <div class="participant-role">${isCreator ? '主持人' : '参与者'}</div>
+                    </div>
+                    ${actionsHtml}
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+        
+        // 控制参与者
+        async function controlParticipant(targetUser, controlType) {
+            try {
+                const response = await postWithCSRF('/control_participant', {
+                    meeting_id: meetingId,
+                    target_user: targetUser,
+                    control_type: controlType
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    alert(data.message);
+                }
+            } catch (err) {
+                console.error('控制参与者失败:', err);
+            }
+        }
+        
+        // 切换全屏
+        function toggleFullscreen() {
+            const container = document.getElementById('meetingContainer');
+            
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().then(() => {
+                    container.classList.add('fullscreen');
+                }).catch(err => {
+                    console.error('全屏失败:', err);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    container.classList.remove('fullscreen');
+                });
+            }
+        }
+        
+        // 加载聊天历史
+        async function loadChatHistory() {
+            try {
+                const response = await fetch(`/meeting_chat_messages/${meetingId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    data.data.forEach(msg => addChatMessage(msg));
+                }
+            } catch (err) {
+                console.error('加载聊天历史失败:', err);
+            }
+        }
+        
+        // 添加聊天消息
+        function addChatMessage(msg) {
+            const container = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            
+            if (msg.message_type === 'system') {
+                messageDiv.className = 'chat-message system';
+                messageDiv.textContent = msg.message;
+            } else {
+                messageDiv.className = 'chat-message';
+                messageDiv.innerHTML = `
+                    <div class="sender">${msg.sender_name}</div>
+                    <div class="content">${escapeHtml(msg.message)}</div>
+                `;
+            }
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 发送聊天消息
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                socket.emit('meeting_chat_message', {
+                    meeting_id: meetingId,
+                    message: message,
+                    message_type: 'text'
+                });
+                input.value = '';
+            }
+        }
+        
+        // 离开会议
+        async function leaveMeeting() {
+            socket.emit('leave_meeting_room', { meeting_id: meetingId });
+            
+            // 停止所有流
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+            }
+            
+            // 关闭所有连接
+            Object.values(peers).forEach(pc => pc.close());
+            
+            // 调用后端离开接口
+            try {
+                await postWithCSRF('/leave_meeting', { meeting_id: meetingId });
+            } catch (err) {
+                console.error('离开会议请求失败:', err);
+            }
+            
+            // 返回主页
+            window.location.href = '/';
+        }
+        
+        // 辅助函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function muteLocalAudio() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = false;
+                    isMicOn = false;
+                    updateMediaButtons();
+                }
+            }
+        }
+        
+        function disableLocalVideo() {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = false;
+                    isCameraOn = false;
+                    updateMediaButtons();
+                }
+            }
+        }
+        
+        function updateParticipantMediaStatus(userName, isCameraOn, isMicOn) {
+            const videoItem = document.getElementById(`video-${userName}`);
+            if (videoItem) {
+                const micIcon = videoItem.querySelector('.status-icon.muted');
+                if (micIcon) {
+                    micIcon.style.display = isMicOn ? 'none' : 'flex';
+                }
+            }
+        }
+        
+        function showScreenSharingIndicator(userName) {
+            const videoItem = document.getElementById(`video-${userName}`);
+            if (videoItem) {
+                videoItem.classList.add('screen-sharing');
+            }
+        }
+        
+        function hideScreenSharingIndicator(userName) {
+            const videoItem = document.getElementById(`video-${userName}`);
+            if (videoItem) {
+                videoItem.classList.remove('screen-sharing');
+            }
+        }
+        
+        // 启动
+        init();
+    </script>
+</body>
+</html>

@@ -201,10 +201,11 @@ def call_ai_api(question, system_prompt=""):
             if len(system_prompt) > 1000: system_prompt = system_prompt[:1000]
             
             # 构建URL
-            base_url = "https://yunzhiapi.cn/API/depsek3.2.php"
+            base_url = "https://yunzhiapi.cn/API/yuanbao.php"
             params = {
                 "question": question,
                 "system": system_prompt,
+                "key" : "wTTIFm12sDbu"
             }
             
             # 发送GET请求
@@ -909,6 +910,63 @@ def get_group_members(group_id):
     except Exception as e:
         print(f"获取群组成员时发生错误: {str(e)}")
         return []
+
+
+def is_group_member(group_id, user_name):
+    """检查用户是否是群组成员"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT 1 FROM group_members
+            WHERE group_id = ? AND user_name = ?
+        ''', (group_id, user_name))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result is not None
+    except Exception as e:
+        print(f"检查群组成员时发生错误: {str(e)}")
+        return False
+
+
+def get_friends(user_name):
+    """获取用户的好友列表（通过聊天记录确定）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 从私聊消息中获取所有有过聊天记录的用户
+        cursor.execute('''
+            SELECT DISTINCT 
+                CASE 
+                    WHEN sender_name = ? THEN receiver_name 
+                    ELSE sender_name 
+                END as friend_name
+            FROM private_text_messages 
+            WHERE sender_name = ? OR receiver_name = ?
+            UNION
+            SELECT DISTINCT 
+                CASE 
+                    WHEN sender_name = ? THEN receiver_name 
+                    ELSE sender_name 
+                END as friend_name
+            FROM private_image_messages 
+            WHERE sender_name = ? OR receiver_name = ?
+            ORDER BY friend_name
+        ''', (user_name, user_name, user_name, user_name, user_name, user_name))
+        
+        resultset = cursor.fetchall()
+        conn.close()
+        
+        friends = [row['friend_name'] for row in resultset]
+        return friends
+    except Exception as e:
+        print(f"获取好友列表时发生错误: {str(e)}")
+        return []
+
 
 def send_group_message(group_id, sender_name, message):
     """发送群组消息"""
@@ -1869,6 +1927,83 @@ def update_database():
             )
         ''')
         
+        # 添加视频会议表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS meetings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                creator_name TEXT NOT NULL,
+                chat_type TEXT NOT NULL,
+                chat_id TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                status TEXT DEFAULT 'scheduled',
+                is_recording INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (creator_name) REFERENCES users(s_name)
+            )
+        ''')
+        
+        # 添加会议参与者表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS meeting_participants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                meeting_id INTEGER NOT NULL,
+                user_name TEXT NOT NULL,
+                joined_at TEXT,
+                left_at TEXT,
+                is_online INTEGER DEFAULT 0,
+                is_camera_on INTEGER DEFAULT 1,
+                is_mic_on INTEGER DEFAULT 1,
+                is_screen_sharing INTEGER DEFAULT 0,
+                is_hand_raised INTEGER DEFAULT 0,
+                FOREIGN KEY (meeting_id) REFERENCES meetings(id),
+                FOREIGN KEY (user_name) REFERENCES users(s_name),
+                UNIQUE(meeting_id, user_name)
+            )
+        ''')
+        
+        # 添加会议聊天记录表（保存30天）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS meeting_chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                meeting_id INTEGER NOT NULL,
+                sender_name TEXT NOT NULL,
+                message TEXT NOT NULL,
+                message_type TEXT DEFAULT 'text',
+                sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (meeting_id) REFERENCES meetings(id),
+                FOREIGN KEY (sender_name) REFERENCES users(s_name)
+            )
+        ''')
+        
+        # 添加会议录制表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS meeting_recordings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                meeting_id INTEGER NOT NULL,
+                file_path TEXT NOT NULL,
+                file_name TEXT NOT NULL,
+                file_size INTEGER DEFAULT 0,
+                duration INTEGER DEFAULT 0,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                recorded_by TEXT NOT NULL,
+                status TEXT DEFAULT 'recording',
+                FOREIGN KEY (meeting_id) REFERENCES meetings(id),
+                FOREIGN KEY (recorded_by) REFERENCES users(s_name)
+            )
+        ''')
+        
+        # 为会议相关表创建索引
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meetings_creator ON meetings(creator_name)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_participants_meeting ON meeting_participants(meeting_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_participants_user ON meeting_participants(user_name)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_chat_meeting ON meeting_chat_messages(meeting_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_chat_sent_at ON meeting_chat_messages(sent_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_recordings_meeting ON meeting_recordings(meeting_id)")
+        
         conn.commit()
         conn.close()
         return True
@@ -1992,3 +2127,418 @@ def get_miniapp(filename):
     except Exception as e:
         print(f"获取Mini App失败: {str(e)}")
         return None
+
+
+# ==================== 视频会议相关函数 ====================
+
+def create_meeting(title, creator_name, chat_type, chat_id, start_time, end_time):
+    """创建会议"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO meetings (title, creator_name, chat_type, chat_id, start_time, end_time, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?)
+        ''', (title, creator_name, chat_type, chat_id, start_time, end_time, 
+              datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        
+        meeting_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return meeting_id
+    except Exception as e:
+        print(f"创建会议失败: {str(e)}")
+        return None
+
+
+def get_meeting_by_id(meeting_id):
+    """获取会议详情"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM meetings WHERE id = ?", (meeting_id,))
+        meeting = cursor.fetchone()
+        conn.close()
+        return meeting
+    except Exception as e:
+        print(f"获取会议详情失败: {str(e)}")
+        return None
+
+
+def get_user_meetings(user_name):
+    """获取用户的所有相关会议"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 只获取：
+        # 1. 用户创建的会议
+        # 2. 用户作为chat_id的私聊会议（别人为用户创建的会议）
+        # 3. 用户已加入的会议
+        # 4. 用户是群成员的群组会议
+        cursor.execute('''
+            SELECT DISTINCT m.* FROM meetings m
+            LEFT JOIN meeting_participants mp ON m.id = mp.meeting_id
+            WHERE m.creator_name = ? 
+               OR mp.user_name = ?
+               OR (m.chat_type = 'private' AND m.chat_id = ?)
+               OR (m.chat_type = 'group' AND m.chat_id IN (
+                   SELECT group_id FROM group_members WHERE user_name = ?
+               ))
+            ORDER BY m.start_time DESC
+        ''', (user_name, user_name, user_name, user_name))
+        
+        meetings = cursor.fetchall()
+        conn.close()
+        return meetings
+    except Exception as e:
+        print(f"获取用户会议列表失败: {str(e)}")
+        return []
+
+
+def get_user_meeting_history(user_name):
+    """获取用户的历史会议（已结束）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT DISTINCT m.* FROM meetings m
+            LEFT JOIN meeting_participants mp ON m.id = mp.meeting_id
+            WHERE (m.creator_name = ? OR mp.user_name = ?) AND m.status = 'ended'
+            ORDER BY m.end_time DESC
+        ''', (user_name, user_name))
+        
+        meetings = cursor.fetchall()
+        conn.close()
+        return meetings
+    except Exception as e:
+        print(f"获取历史会议失败: {str(e)}")
+        return []
+
+
+def update_meeting_status(meeting_id, status):
+    """更新会议状态"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("UPDATE meetings SET status = ? WHERE id = ?", (status, meeting_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"更新会议状态失败: {str(e)}")
+        return False
+
+
+def add_meeting_participant(meeting_id, user_name):
+    """添加会议参与者"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO meeting_participants 
+            (meeting_id, user_name, joined_at, is_online)
+            VALUES (?, ?, ?, 1)
+        ''', (meeting_id, user_name, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"添加会议参与者失败: {str(e)}")
+        return False
+
+
+def remove_meeting_participant(meeting_id, user_name):
+    """移除会议参与者"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE meeting_participants 
+            SET left_at = ?, is_online = 0
+            WHERE meeting_id = ? AND user_name = ?
+        ''', (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), meeting_id, user_name))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"移除会议参与者失败: {str(e)}")
+        return False
+
+
+def get_meeting_participants(meeting_id):
+    """获取会议参与者列表"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT mp.*, u.s_phone_num, u.s_sex, u.place 
+            FROM meeting_participants mp
+            JOIN users u ON mp.user_name = u.s_name
+            WHERE mp.meeting_id = ?
+            ORDER BY mp.joined_at ASC
+        ''', (meeting_id,))
+        
+        participants = cursor.fetchall()
+        conn.close()
+        return participants
+    except Exception as e:
+        print(f"获取会议参与者失败: {str(e)}")
+        return []
+
+
+def update_participant_status(meeting_id, user_name, **kwargs):
+    """更新参与者状态"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 构建更新字段
+        allowed_fields = ['is_online', 'is_camera_on', 'is_mic_on', 'is_screen_sharing', 'is_hand_raised']
+        updates = []
+        values = []
+        
+        for field, value in kwargs.items():
+            if field in allowed_fields:
+                updates.append(f"{field} = ?")
+                values.append(value)
+        
+        if not updates:
+            return False
+        
+        values.extend([meeting_id, user_name])
+        
+        cursor.execute(f'''
+            UPDATE meeting_participants 
+            SET {', '.join(updates)}
+            WHERE meeting_id = ? AND user_name = ?
+        ''', values)
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"更新参与者状态失败: {str(e)}")
+        return False
+
+
+def save_meeting_chat_message(meeting_id, sender_name, message, message_type='text'):
+    """保存会议聊天消息"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO meeting_chat_messages (meeting_id, sender_name, message, message_type, sent_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (meeting_id, sender_name, message, message_type, 
+              datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        
+        message_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return message_id
+    except Exception as e:
+        print(f"保存会议聊天消息失败: {str(e)}")
+        return None
+
+
+def get_meeting_chat_messages(meeting_id, limit=100):
+    """获取会议聊天消息"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT mcm.*, u.s_phone_num, u.s_sex, u.place
+            FROM meeting_chat_messages mcm
+            JOIN users u ON mcm.sender_name = u.s_name
+            WHERE mcm.meeting_id = ?
+            ORDER BY mcm.sent_at ASC
+            LIMIT ?
+        ''', (meeting_id, limit))
+        
+        messages = cursor.fetchall()
+        conn.close()
+        return messages
+    except Exception as e:
+        print(f"获取会议聊天消息失败: {str(e)}")
+        return []
+
+
+def start_meeting_recording(meeting_id, recorded_by, file_path, file_name):
+    """开始会议录制"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        cursor.execute('''
+            INSERT INTO meeting_recordings (meeting_id, file_path, file_name, started_at, recorded_by, status)
+            VALUES (?, ?, ?, ?, ?, 'recording')
+        ''', (meeting_id, file_path, file_name, now, recorded_by))
+        
+        recording_id = cursor.lastrowid
+        
+        # 更新会议录制状态
+        cursor.execute("UPDATE meetings SET is_recording = 1 WHERE id = ?", (meeting_id,))
+        
+        conn.commit()
+        conn.close()
+        return recording_id
+    except Exception as e:
+        print(f"开始会议录制失败: {str(e)}")
+        return None
+
+
+def stop_meeting_recording(recording_id, duration=0, file_size=0):
+    """停止会议录制"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        cursor.execute('''
+            UPDATE meeting_recordings 
+            SET ended_at = ?, duration = ?, file_size = ?, status = 'completed'
+            WHERE id = ?
+        ''', (now, duration, file_size, recording_id))
+        
+        # 获取会议ID并更新录制状态
+        cursor.execute("SELECT meeting_id FROM meeting_recordings WHERE id = ?", (recording_id,))
+        result = cursor.fetchone()
+        if result:
+            cursor.execute("UPDATE meetings SET is_recording = 0 WHERE id = ?", (result['meeting_id'],))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"停止会议录制失败: {str(e)}")
+        return False
+
+
+def get_meeting_recordings(meeting_id):
+    """获取会议录制列表"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT mr.*, u.s_name as recorder_name
+            FROM meeting_recordings mr
+            JOIN users u ON mr.recorded_by = u.s_name
+            WHERE mr.meeting_id = ?
+            ORDER BY mr.started_at DESC
+        ''', (meeting_id,))
+        
+        recordings = cursor.fetchall()
+        conn.close()
+        return recordings
+    except Exception as e:
+        print(f"获取会议录制列表失败: {str(e)}")
+        return []
+
+
+def get_recording_by_id(recording_id):
+    """获取录制详情"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM meeting_recordings WHERE id = ?", (recording_id,))
+        recording = cursor.fetchone()
+        conn.close()
+        return recording
+    except Exception as e:
+        print(f"获取录制详情失败: {str(e)}")
+        return None
+
+
+def check_meeting_permission(meeting_id, user_name):
+    """检查用户是否有权限访问会议"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 获取会议信息
+        cursor.execute("SELECT * FROM meetings WHERE id = ?", (meeting_id,))
+        meeting = cursor.fetchone()
+        
+        if not meeting:
+            conn.close()
+            return False, None
+        
+        # 检查是否是创建者
+        if meeting['creator_name'] == user_name:
+            conn.close()
+            return True, 'creator'
+        
+        # 检查是否是参与者
+        cursor.execute('''
+            SELECT 1 FROM meeting_participants 
+            WHERE meeting_id = ? AND user_name = ?
+        ''', (meeting_id, user_name))
+        
+        if cursor.fetchone():
+            conn.close()
+            return True, 'participant'
+        
+        # 检查是否是私聊会议的chat_id（别人为用户创建的会议）
+        if meeting['chat_type'] == 'private' and meeting['chat_id'] == user_name:
+            conn.close()
+            return True, 'participant'
+        
+        # 检查是否是群组成员
+        if meeting['chat_type'] == 'group':
+            cursor.execute('''
+                SELECT 1 FROM group_members 
+                WHERE group_id = ? AND user_name = ?
+            ''', (meeting['chat_id'], user_name))
+            if cursor.fetchone():
+                conn.close()
+                return True, 'participant'
+        
+        conn.close()
+        return False, None
+    except Exception as e:
+        print(f"检查会议权限失败: {str(e)}")
+        return False, None
+
+
+def cleanup_old_meeting_chat_messages():
+    """清理30天前的会议聊天记录"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 计算30天前的日期
+        thirty_days_ago = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 删除30天前的聊天记录
+        cursor.execute(
+            "DELETE FROM meeting_chat_messages WHERE sent_at < ?",
+            (thirty_days_ago,)
+        )
+        
+        deleted_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        if deleted_count > 0:
+            print(f"已清理 {deleted_count} 条30天前的会议聊天记录")
+        return True
+    except Exception as e:
+        print(f"清理会议聊天记录失败: {str(e)}")
+        return False
